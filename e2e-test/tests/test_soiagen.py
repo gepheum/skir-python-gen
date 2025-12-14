@@ -1,12 +1,12 @@
 import unittest
 
-from soiagen.constants_soia import ONE_CONSTANT
-from soiagen.enums_soia import JsonValue, Weekday
-from soiagen.full_name_soia import FullName
-from soiagen.structs_soia import Color, Foo, Item, Items, NameCollision, Triangle, True_
+from skirout.constants_skir import ONE_CONSTANT
+from skirout.enums_skir import JsonValue, Weekday
+from skirout.full_name_skir import FullName
+from skirout.structs_skir import Color, Foo, Item, Items, NameCollision, Triangle, True_
 
 
-class SoiagenTestCase(unittest.TestCase):
+class SkiroutTestCase(unittest.TestCase):
     def test_full_name(self):
         full_name = FullName(first_name="Tyler", last_name="Fibonacci")
         self.assertEqual(full_name.first_name, "Tyler")

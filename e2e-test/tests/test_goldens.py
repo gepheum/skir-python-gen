@@ -3,8 +3,8 @@ import unittest
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
 
-import soia.reflection
-from soiagen.goldens_soia import (
+import skir.reflection
+from skirout.goldens_skir import (
     UNIT_TESTS,
     Assertion,
     BytesExpression,
@@ -18,7 +18,7 @@ from soiagen.goldens_soia import (
     TypedValue,
 )
 
-import soia
+import skir
 
 
 class AssertionError(Exception):
@@ -136,7 +136,7 @@ def reserialize_value_and_verify(input_value: Assertion.ReserializeValue):
     # Make sure the encoded value can be skipped.
     for expected_bytes in input_value.expected_bytes:
         buffer = bytearray(len(expected_bytes) + 2)
-        prefix = b"soia"
+        prefix = b"skir"
         buffer[0:4] = prefix
         buffer[4] = 248
         buffer[5 : len(expected_bytes) + 1] = expected_bytes[len(prefix) :]
@@ -247,7 +247,7 @@ def reserialize_value_and_verify(input_value: Assertion.ReserializeValue):
         verify_assertion(
             Assertion.create_string_equal(
                 actual=StringExpression.wrap_literal(
-                    soia.reflection.TypeDescriptor.from_json_code(actual).as_json_code()
+                    skir.reflection.TypeDescriptor.from_json_code(actual).as_json_code()
                 ),
                 expected=StringExpression.wrap_literal(actual),
             )
@@ -258,9 +258,9 @@ def reserialize_large_string_and_verify(input_value: Assertion.ReserializeLargeS
     string = "a" * input_value.num_chars
 
     # Test dense JSON
-    json_dense = to_dense_json(soia.primitive_serializer("string"), string)
+    json_dense = to_dense_json(skir.primitive_serializer("string"), string)
     round_trip = from_json_drop_unrecognized(
-        soia.primitive_serializer("string"), json_dense
+        skir.primitive_serializer("string"), json_dense
     )
     if round_trip != string:
         raise AssertionError(
@@ -269,9 +269,9 @@ def reserialize_large_string_and_verify(input_value: Assertion.ReserializeLargeS
         )
 
     # Test readable JSON
-    json_readable = to_readable_json(soia.primitive_serializer("string"), string)
+    json_readable = to_readable_json(skir.primitive_serializer("string"), string)
     round_trip = from_json_drop_unrecognized(
-        soia.primitive_serializer("string"), json_readable
+        skir.primitive_serializer("string"), json_readable
     )
     if round_trip != string:
         raise AssertionError(
@@ -280,14 +280,14 @@ def reserialize_large_string_and_verify(input_value: Assertion.ReserializeLargeS
         )
 
     # Test bytes
-    byte_data = to_bytes(soia.primitive_serializer("string"), string)
+    byte_data = to_bytes(skir.primitive_serializer("string"), string)
     if not byte_data.hex().startswith(input_value.expected_byte_prefix.hex()):
         raise AssertionError(
             actual=f"hex:{byte_data.hex()}",
             expected=f"hex:{input_value.expected_byte_prefix.hex()}...",
         )
     round_trip = from_bytes_drop_unrecognized_fields(
-        soia.primitive_serializer("string"), byte_data
+        skir.primitive_serializer("string"), byte_data
     )
     if round_trip != string:
         raise AssertionError(
@@ -298,7 +298,7 @@ def reserialize_large_string_and_verify(input_value: Assertion.ReserializeLargeS
 
 def reserialize_large_array_and_verify(input_value: Assertion.ReserializeLargeArray):
     array = (1,) * input_value.num_items
-    serializer = soia.array_serializer(soia.primitive_serializer("int32"))
+    serializer = skir.array_serializer(skir.primitive_serializer("int32"))
 
     def is_array_valid(arr):
         return len(arr) == input_value.num_items and all(v == 1 for v in arr)
@@ -369,64 +369,64 @@ T = TypeVar("T")
 @dataclass(frozen=True)
 class TypedValueType(Generic[T]):
     value: T
-    serializer: soia.Serializer[T]
+    serializer: skir.Serializer[T]
 
 
 def evaluate_typed_value(literal: TypedValue) -> TypedValueType[Any]:
     if literal.union.kind == "bool":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("bool"),
+            serializer=skir.primitive_serializer("bool"),
         )
     elif literal.union.kind == "int32":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("int32"),
+            serializer=skir.primitive_serializer("int32"),
         )
     elif literal.union.kind == "int64":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("int64"),
+            serializer=skir.primitive_serializer("int64"),
         )
     elif literal.union.kind == "uint64":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("uint64"),
+            serializer=skir.primitive_serializer("uint64"),
         )
     elif literal.union.kind == "float32":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("float32"),
+            serializer=skir.primitive_serializer("float32"),
         )
     elif literal.union.kind == "float64":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("float64"),
+            serializer=skir.primitive_serializer("float64"),
         )
     elif literal.union.kind == "timestamp":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("timestamp"),
+            serializer=skir.primitive_serializer("timestamp"),
         )
     elif literal.union.kind == "string":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("string"),
+            serializer=skir.primitive_serializer("string"),
         )
     elif literal.union.kind == "bytes":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.primitive_serializer("bytes"),
+            serializer=skir.primitive_serializer("bytes"),
         )
     elif literal.union.kind == "bool_optional":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.optional_serializer(soia.primitive_serializer("bool")),
+            serializer=skir.optional_serializer(skir.primitive_serializer("bool")),
         )
     elif literal.union.kind == "ints":
         return TypedValueType(
             value=literal.union.value,
-            serializer=soia.array_serializer(soia.primitive_serializer("int32")),
+            serializer=skir.array_serializer(skir.primitive_serializer("int32")),
         )
     elif literal.union.kind == "point":
         return TypedValueType(
@@ -572,35 +572,35 @@ def evaluate_typed_value(literal: TypedValue) -> TypedValueType[Any]:
         raise ValueError(f"Unexpected TypedValue kind: {literal.union.kind}")
 
 
-def to_dense_json(serializer: soia.Serializer[T], input: T) -> str:
+def to_dense_json(serializer: skir.Serializer[T], input: T) -> str:
     try:
         return serializer.to_json_code(input)
     except Exception as e:
         raise AssertionError(f"Failed to serialize {input} to dense JSON: {e}")
 
 
-def to_readable_json(serializer: soia.Serializer[T], input: T) -> str:
+def to_readable_json(serializer: skir.Serializer[T], input: T) -> str:
     try:
         return serializer.to_json_code(input, readable=True)
     except Exception as e:
         raise AssertionError(f"Failed to serialize {input} to readable JSON: {e}")
 
 
-def to_bytes(serializer: soia.Serializer[T], input: T) -> bytes:
+def to_bytes(serializer: skir.Serializer[T], input: T) -> bytes:
     try:
         return serializer.to_bytes(input)
     except Exception as e:
         raise AssertionError(f"Failed to serialize {input} to bytes: {e}")
 
 
-def from_json_keep_unrecognized(serializer: soia.Serializer[T], json_code: str) -> T:
+def from_json_keep_unrecognized(serializer: skir.Serializer[T], json_code: str) -> T:
     try:
-        return serializer.from_json_code(json_code, keep_unrecognized_fields=True)
+        return serializer.from_json_code(json_code, keep_unrecognized_values=True)
     except Exception as e:
         raise AssertionError(f"Failed to deserialize {json_code}: {e}")
 
 
-def from_json_drop_unrecognized(serializer: soia.Serializer[T], json_code: str) -> T:
+def from_json_drop_unrecognized(serializer: skir.Serializer[T], json_code: str) -> T:
     try:
         return serializer.from_json_code(json_code)
     except Exception as e:
@@ -608,7 +608,7 @@ def from_json_drop_unrecognized(serializer: soia.Serializer[T], json_code: str) 
 
 
 def from_bytes_drop_unrecognized_fields(
-    serializer: soia.Serializer[T], data: bytes
+    serializer: skir.Serializer[T], data: bytes
 ) -> T:
     try:
         return serializer.from_bytes(data)
@@ -616,9 +616,9 @@ def from_bytes_drop_unrecognized_fields(
         raise AssertionError(f"Failed to deserialize {data.hex()}: {e}")
 
 
-def from_bytes_keep_unrecognized(serializer: soia.Serializer[T], data: bytes) -> T:
+def from_bytes_keep_unrecognized(serializer: skir.Serializer[T], data: bytes) -> T:
     try:
-        return serializer.from_bytes(data, keep_unrecognized_fields=True)
+        return serializer.from_bytes(data, keep_unrecognized_values=True)
     except Exception as e:
         raise AssertionError(f"Failed to deserialize {data.hex()}: {e}")
 

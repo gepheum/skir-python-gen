@@ -23,7 +23,7 @@ export class PyType {
   static readonly BOOL = this.of("bool");
   static readonly INT = this.of("int");
   static readonly FLOAT = this.of("float");
-  static readonly TIMESTAMP = this.of("soia.Timestamp");
+  static readonly TIMESTAMP = this.of("skir.Timestamp");
   static readonly STR = this.of("str");
   static readonly BYTES = this.of("bytes");
   static readonly NEVER = this.union([]);

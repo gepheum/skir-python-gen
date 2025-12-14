@@ -1,1 +1,1 @@
-soia-client >= 1.2.0
+skir-client >= 0.0.1

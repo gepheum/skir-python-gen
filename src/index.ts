@@ -7,7 +7,7 @@ import type {
   RecordKey,
   RecordLocation,
   ResolvedType,
-} from "soiac";
+} from "skir-internal";
 import { z } from "zod";
 import { PY_UPPER_CAMEL_KEYWORDS, getClassName } from "./class_speller.js";
 import { PyType } from "./py_type.js";
@@ -27,7 +27,7 @@ class PythonCodeGenerator implements CodeGenerator<Config> {
     const outputFiles: CodeGenerator.OutputFile[] = [];
     for (const module of input.modules) {
       outputFiles.push({
-        path: module.path.replace(/\.soia$/, "_soia.py"),
+        path: module.path.replace(/\.skir$/, "_skir.py"),
         code: new PythonModuleCodeGenerator(
           module,
           recordMap,
@@ -64,8 +64,8 @@ class PythonModuleCodeGenerator {
       "#  |___/   \\___/  |_| |_| \\___/  \\__|  \\___| \\__,_||_| \\__|",
     );
     this.pushLine("#");
-    this.pushLine("# To install the Soia client library:");
-    this.pushLine("#   pip install soia-client");
+    this.pushLine("# To install the Skir client library:");
+    this.pushLine("#   pip install skir-client");
     this.pushLine();
 
     this.writeImports();
@@ -98,13 +98,13 @@ class PythonModuleCodeGenerator {
     for (const path of Object.keys(this.inModule.pathToImportedNames)) {
       // We only need to import the modules, no  need to import the actual names.
       // We will refer to the imported symbols using the long notation:
-      //    soiagen.path.to.module_soia.Foo
+      //    skirout.path.to.module_skir.Foo
       this.pushLine(
-        `import soiagen.${path.replace(/\.soia$/, "").replace("/", ".")}_soia`,
+        `import skirout.${path.replace(/\.skir$/, "").replace("/", ".")}_skir`,
       );
     }
-    this.pushLine("import soia");
-    this.pushLine("from soia import _, _module_initializer, _spec");
+    this.pushLine("import skir");
+    this.pushLine("from skir import _, _module_initializer, _spec");
   }
 
   private writeClassesForRecords(
@@ -216,7 +216,7 @@ class PythonModuleCodeGenerator {
     this.pushLine();
     this.pushLine(`DEFAULT: typing.Final["${qualifiedName}"] = _`);
     this.pushLine(
-      `serializer: typing.Final[soia.Serializer["${qualifiedName}"]] = _`,
+      `serializer: typing.Final[skir.Serializer["${qualifiedName}"]] = _`,
     );
   }
 
@@ -238,13 +238,13 @@ class PythonModuleCodeGenerator {
         !!allRecordsFrozen,
       );
       if (default_ === "keep") {
-        pyType = PyType.union([pyType, PyType.of("soia.Keep")]);
+        pyType = PyType.union([pyType, PyType.of("skir.Keep")]);
       }
       const attribute = structFieldToAttr(field.name.text);
       if (default_ === "no-default") {
         this.pushLine(` ${attribute}: ${pyType},`);
       } else if (default_ === "keep") {
-        this.pushLine(` ${attribute}: ${pyType} = soia.KEEP,`);
+        this.pushLine(` ${attribute}: ${pyType} = skir.KEEP,`);
       } else if (default_ === "default") {
         const defaultValue = getDefaultValue(field.type!);
         this.pushLine(` ${attribute}: ${pyType} = ${defaultValue},`);
@@ -256,21 +256,21 @@ class PythonModuleCodeGenerator {
 
   private writeClassForEnum(record: RecordLocation): void {
     const { typeSpeller } = this;
-    const { fields } = record.record;
-    const constantFields = fields.filter((f) => !f.type);
-    const wrapperFields = fields.filter((f) => f.type);
+    const { fields: variants } = record.record;
+    const constantVariants = variants.filter((v) => !v.type);
+    const wrapperVariants = variants.filter((v) => v.type);
     const className = getClassName(record, this.inModule);
     const { qualifiedName } = className;
     this.pushLine("@typing.final");
     this.pushLine(`class ${className.name}:`);
     this.pushLine(`UNKNOWN: typing.Final["${qualifiedName}"] = _`);
-    for (const constantField of constantFields) {
-      const attribute = enumWrapperFieldToAttr(constantField.name.text);
+    for (const constantVariant of constantVariants) {
+      const attribute = enumWrapperVariantToAttr(constantVariant.name.text);
       this.pushLine(`${attribute}: typing.Final["${qualifiedName}"] = _`);
     }
-    for (const wrapperField of wrapperFields) {
-      const name = wrapperField.name.text;
-      const type = wrapperField.type!;
+    for (const wrapperVariant of wrapperVariants) {
+      const name = wrapperVariant.name.text;
+      const type = wrapperVariant.type!;
       const pyType = typeSpeller.getPyType(type, "initializer");
       this.pushLine();
       this.pushLine("@staticmethod");
@@ -290,13 +290,13 @@ class PythonModuleCodeGenerator {
     }
     this.pushLine();
     this.pushLine("def __init__(self, _: typing.NoReturn): ...");
-    if (fields.length === 0) {
+    if (variants.length === 0) {
       return;
     }
     this.pushLine();
     {
       const kindTypeArgs = ['"?"']
-        .concat(fields.map((f) => `"${f.name.text}"`))
+        .concat(variants.map((v) => `"${v.name.text}"`))
         .join(", ");
       this.pushLine(`Kind: typing.TypeAlias = typing.Literal[${kindTypeArgs}]`);
     }
@@ -307,7 +307,7 @@ class PythonModuleCodeGenerator {
       this.pushLine(`def kind(self) -> ${kindType}: ...`);
     }
     {
-      const typesInUnion: PyType[] = wrapperFields.map((f) =>
+      const typesInUnion: PyType[] = wrapperVariants.map((f) =>
         typeSpeller.getPyType(f.type!, "frozen"),
       );
       typesInUnion.push(PyType.NONE);
@@ -320,36 +320,36 @@ class PythonModuleCodeGenerator {
       const getVariantType = (name: string): PyType =>
         PyType.quote(`${qualifiedName}._${name}`);
       const typesInUnion = [getVariantType("Unknown")].concat(
-        fields.map((f) => getVariantType(f.name.text)),
+        variants.map((v) => getVariantType(v.name.text)),
       );
       this.pushLine();
       this.pushLine("@property");
       this.pushLine(`def union(self) -> ${PyType.union(typesInUnion)}: ...`);
     }
     this.writeVariantClass("Unknown", PyType.NONE, "?");
-    for (const field of fields) {
-      const fieldName = field.name.text;
-      const valueType = field.type
-        ? typeSpeller.getPyType(field.type, "frozen")
+    for (const variant of variants) {
+      const variantName = variant.name.text;
+      const valueType = variant.type
+        ? typeSpeller.getPyType(variant.type, "frozen")
         : PyType.NONE;
-      this.writeVariantClass(fieldName, valueType);
+      this.writeVariantClass(variantName, valueType);
     }
     this.pushLine();
     this.pushLine(
-      `serializer: typing.Final[soia.Serializer["${qualifiedName}"]] = _`,
+      `serializer: typing.Final[skir.Serializer["${qualifiedName}"]] = _`,
     );
   }
 
   private writeVariantClass(
-    fieldName: string,
+    variantName: string,
     valueType: PyType,
     kind?: string,
   ): void {
     this.pushLine();
-    this.pushLine(`class _${fieldName}(typing.Protocol):`);
+    this.pushLine(`class _${variantName}(typing.Protocol):`);
     this.pushLine("@property");
     this.pushLine(
-      `def kind(self) -> typing.Literal["${kind || fieldName}"]: ...`,
+      `def kind(self) -> typing.Literal["${kind || variantName}"]: ...`,
     );
     this.pushLine();
     this.pushLine("@property");
@@ -365,7 +365,7 @@ class PythonModuleCodeGenerator {
       : methodName;
     const requestType = typeSpeller.getPyType(method.requestType!, "frozen");
     const responseType = typeSpeller.getPyType(method.responseType!, "frozen");
-    const methodType = `soia.Method[${requestType}, ${responseType}]`;
+    const methodType = `skir.Method[${requestType}, ${responseType}]`;
     this.pushLine();
     this.pushLine(`${varName}: typing.Final[${methodType}] = _`);
   }
@@ -385,7 +385,7 @@ class PythonModuleCodeGenerator {
     this.pushLine("_module_initializer.init_module(");
     this.pushLine(" records=(");
     for (const record of inModule.records) {
-      const { recordType, removedNumbers } = record.record;
+      const { doc: recordDoc, recordType, removedNumbers } = record.record;
       const className = getClassName(record, inModule);
       const recordQualname = record.recordAncestors
         .map((r) => r.name.text)
@@ -403,6 +403,9 @@ class PythonModuleCodeGenerator {
       if (className.qualifiedName !== recordQualname) {
         this.pushLine(`   _class_qualname="${className.qualifiedName}",`);
       }
+      if (recordDoc.text) {
+        this.pushLine(`   doc=${JSON.stringify(recordDoc.text)},`);
+      }
       if (removedNumbers.length) {
         const removedNumbersStr = removedNumbers
           .map((n) => `${n}, `)
@@ -410,13 +413,13 @@ class PythonModuleCodeGenerator {
           .trimEnd();
         this.pushLine(`   removed_numbers=(${removedNumbersStr}),`);
       }
-      const { fields } = record.record;
       if (recordType === "struct") {
+        const { fields } = record.record;
         this.pushLine(`   fields=(`);
         for (const field of fields) {
           const fieldName = field.name.text;
           const fieldType = field.type!;
-          const { isRecursive } = field;
+          const { doc: fieldDoc, isRecursive } = field;
           const hasMutableGetter =
             typeSpeller
               .getPyType(fieldType, "mutable", !!isRecursive)
@@ -428,6 +431,9 @@ class PythonModuleCodeGenerator {
           this.pushLine(`     name="${fieldName}",`);
           this.pushLine(`     number=${field.number},`);
           this.pushLine(`     type=${this.typeToSpec(fieldType)},`);
+          if (fieldDoc.text) {
+            this.pushLine(`     doc=${JSON.stringify(fieldDoc.text)},`);
+          }
           if (hasMutableGetter) {
             this.pushLine(`     has_mutable_getter=True,`);
           }
@@ -439,30 +445,35 @@ class PythonModuleCodeGenerator {
         }
         this.pushLine(`   ),`);
       } else {
-        const constantFields = fields.filter((f) => !f.type);
-        const wrapperFields = fields.filter((f) => f.type);
-        this.pushLine(`   constant_fields=(`);
-        for (const field of constantFields) {
-          const fieldName = field.name.text;
-          this.pushLine("    _spec.ConstantField(");
-          this.pushLine(`     name="${fieldName}",`);
-          this.pushLine(`     number=${field.number},`);
-          const attribute = enumWrapperFieldToAttr(fieldName);
-          if (attribute !== fieldName) {
+        const { fields: variants } = record.record;
+        const constantFields = variants.filter((f) => !f.type);
+        const wrapperFields = variants.filter((f) => f.type);
+        this.pushLine(`   constant_variants=(`);
+        for (const variant of constantFields) {
+          const variantName = variant.name.text;
+          const { doc: variantDoc } = variant;
+          this.pushLine("    _spec.ConstantVariant(");
+          this.pushLine(`     name="${variantName}",`);
+          this.pushLine(`     number=${variant.number},`);
+          if (variantDoc.text) {
+            this.pushLine(`     doc=${JSON.stringify(variantDoc.text)},`);
+          }
+          const attribute = enumWrapperVariantToAttr(variantName);
+          if (attribute !== variantName) {
             this.pushLine(`     _attribute="${attribute}",`);
           }
           this.pushLine("    ),");
         }
-        this.pushLine(`   ),`);
-        this.pushLine(`   wrapper_fields=(`);
-        for (const field of wrapperFields) {
-          this.pushLine("    _spec.WrapperField(");
-          this.pushLine(`     name="${field.name.text}",`);
-          this.pushLine(`     number=${field.number},`);
-          this.pushLine(`     type=${this.typeToSpec(field.type!)},`);
+        this.pushLine("   ),");
+        this.pushLine("   wrapper_variants=(");
+        for (const variant of wrapperFields) {
+          this.pushLine("    _spec.WrapperVariant(");
+          this.pushLine(`     name="${variant.name.text}",`);
+          this.pushLine(`     number=${variant.number},`);
+          this.pushLine(`     type=${this.typeToSpec(variant.type!)},`);
           this.pushLine("    ),");
         }
-        this.pushLine(`   ),`);
+        this.pushLine("   ),");
       }
       this.pushLine("  ),");
     }
@@ -470,6 +481,7 @@ class PythonModuleCodeGenerator {
     this.pushLine(" methods=(");
     for (const method of inModule.methods) {
       const methodName = method.name.text;
+      const { doc } = method;
       this.pushLine("  _spec.Method(");
       this.pushLine(`   name="${methodName}",`);
       this.pushLine(`   number=${method.number},`);
@@ -477,6 +489,9 @@ class PythonModuleCodeGenerator {
       this.pushLine(
         `   response_type=${this.typeToSpec(method.responseType!)},`,
       );
+      if (doc.text) {
+        this.pushLine(`   doc=${JSON.stringify(doc.text)},`);
+      }
       if (PY_UPPER_CAMEL_KEYWORDS.has(methodName)) {
         this.pushLine(`   _var_name="${methodName}_",`);
       }
@@ -568,8 +583,10 @@ function structFieldToAttr(fieldName: string): string {
     : fieldName;
 }
 
-function enumWrapperFieldToAttr(fieldName: string): string {
-  return STRUCT_GEN_UPPER_SYMBOLS.has(fieldName) ? `${fieldName}_` : fieldName;
+function enumWrapperVariantToAttr(variantName: string): string {
+  return STRUCT_GEN_UPPER_SYMBOLS.has(variantName)
+    ? `${variantName}_`
+    : variantName;
 }
 
 function getDefaultValue(type: ResolvedType): string {
@@ -594,7 +611,7 @@ function getDefaultValue(type: ResolvedType): string {
         case "bytes":
           return 'b""';
         case "timestamp":
-          return "soia.Timestamp.EPOCH";
+          return "skir.Timestamp.EPOCH";
       }
       const _: never = type.primitive;
       break;

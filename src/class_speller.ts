@@ -1,5 +1,4 @@
-import type { Module } from "soiac";
-import { RecordLocation } from "soiac";
+import type { Module, RecordLocation } from "skir-internal";
 
 export interface ClassName {
   /** The name right after the 'class' keyword.. */
@@ -38,8 +37,8 @@ export function getClassName(
   if (record.modulePath !== origin.path) {
     // The record is located in an imported module.
     const path = record.modulePath;
-    const importPath = path.replace(/\.soia$/, "").replace("/", ".");
-    qualifiedName = `soiagen.${importPath}_soia.${qualifiedName}`;
+    const importPath = path.replace(/\.skir$/, "").replace("/", ".");
+    qualifiedName = `skirout.${importPath}_skir.${qualifiedName}`;
   }
 
   return {

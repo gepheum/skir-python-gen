@@ -1,4 +1,9 @@
-import type { Module, RecordKey, RecordLocation, ResolvedType } from "soiac";
+import type {
+  Module,
+  RecordKey,
+  RecordLocation,
+  ResolvedType,
+} from "skir-internal";
 import { ClassName, getClassName } from "./class_speller.js";
 import { PyType } from "./py_type.js";
 
@@ -10,7 +15,7 @@ export type TypeFlavor =
   | "kind";
 
 /**
- * Transforms a type found in a `.soia` file into a Python type.
+ * Transforms a type found in a '.skir' file into a Python type.
  *
  * The flavors are:
  *   · initializer
@@ -23,7 +28,7 @@ export type TypeFlavor =
  *       Type union of the frozen type and the mutable type. All the fields of a
  *       mutable class are maybe-mutable.
  *   · mutable:
- *       A mutable value. Not all types found in `.soia` files support this, e.g.
+ *       A mutable value. Not all types found in '.skir' files support this, e.g.
  *       strings and numbers are always immutable.
  */
 export class TypeSpeller {
@@ -107,7 +112,7 @@ export class TypeSpeller {
         if (type.key) {
           const keyType = this.getPyType(type.key.keyType, "kind");
           tupleType = PyType.of(
-            `soia.KeyedItems[${frozenItemType}, ${keyType}]`,
+            `skir.KeyedItems[${frozenItemType}, ${keyType}]`,
           );
         } else {
           tupleType = PyType.of(`tuple[${frozenItemType}, ...]`);

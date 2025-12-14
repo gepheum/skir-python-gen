@@ -1,40 +1,40 @@
-[![npm](https://img.shields.io/npm/v/soia-python-gen)](https://www.npmjs.com/package/soia-python-gen)
-[![build](https://github.com/gepheum/soia-python-gen/workflows/Build/badge.svg)](https://github.com/gepheum/soia-python-gen/actions)
+[![npm](https://img.shields.io/npm/v/skir-python-gen)](https://www.npmjs.com/package/skir-python-gen)
+[![build](https://github.com/gepheum/skir-python-gen/workflows/Build/badge.svg)](https://github.com/gepheum/skir-python-gen/actions)
 
-# Soia's Python code generator
+# Skir's Python code generator
 
-Official plugin for generating Python code from [.soia](https://github.com/gepheum/soia) files.
+Official plugin for generating Python code from [.skir](https://github.com/gepheum/skir) files.
 
 Targets Python 3.10 and higher.
 
 ## Installation
 
-From your project's root directory, run `npm i --save-dev soia-python-gen`.
+From your project's root directory, run `npm i --save-dev skir-python-gen`.
 
-In your `soia.yml` file, add the following snippet under `generators`:
+In your `skir.yml` file, add the following snippet under `generators`:
 ```yaml
-  - mod: soia-python-gen
+  - mod: skir-python-gen
     config: {}
 ```
 
-The `npm run soiac` command will now generate .py files within the `soiagen` directory.
+The `npm run skirc` command will now generate .py files within the `skirout` directory.
 
-For more information, see this Python project [example](https://github.com/gepheum/soia-python-example).
+For more information, see this Python project [example](https://github.com/gepheum/skir-python-example).
 
 ## Python generated code guide
 
-The examples below are for the code generated from [this](https://github.com/gepheum/soia-python-example/blob/main/soia_src/user.soia) .soia file.
+The examples below are for the code generated from [this](https://github.com/gepheum/skir-python-example/blob/main/skir_src/user.skir) .skir file.
 
 ### Referring to generated symbols
 
 ```python
-# Import the given symbols from the Python module generated from "user.soia"
-from soiagen.user_soia import TARZAN, User, UserHistory, UserRegistry
+# Import the given symbols from the Python module generated from "user.skir"
+from skirout.user_skir import TARZAN, User, UserHistory, UserRegistry
 ```
 
 ### Struct classes
 
-For every struct `S` in the .soia file, soia generates a frozen (deeply immutable) class `S` and a mutable class `S.Mutable`.
+For every struct `S` in the .skir file, skir generates a frozen (deeply immutable) class `S` and a mutable class `S.Mutable`.
 
 #### Frozen struct classes
 
@@ -148,7 +148,7 @@ greet(lyla_mut)
 
 ### Enum classes
 
-The definition of the `SubscriptionStatus` enum in the .soia file is:
+The definition of the `SubscriptionStatus` enum in the .skir file is:
 ```rust
 enum SubscriptionStatus {
   FREE;
@@ -167,7 +167,7 @@ joly_status = User.SubscriptionStatus.UNKNOWN
 
 # Use wrap_*() for data variants.
 roni_status = User.SubscriptionStatus.wrap_trial(
-    User.Trial(start_time=soia.Timestamp.from_unix_millis(1744974198000))
+    User.Trial(start_time=skir.Timestamp.from_unix_millis(1744974198000))
 )
 ```
 
@@ -233,7 +233,7 @@ print(serializer.to_json_code(john, readable=True))
 # }
 
 # The dense JSON flavor is the flavor you should pick if you intend to
-# deserialize the value in the future. Soia allows fields to be renamed, and
+# deserialize the value in the future. Skir allows fields to be renamed, and
 # because fields names are not part of the dense JSON, renaming a field does
 # not prevent you from deserializing the value.
 # You should pick the readable flavor mostly for debugging purposes.
@@ -298,19 +298,19 @@ print(TARZAN)
 # )
 ```
 
-### Soia services
+### Skir services
 
-#### Starting a soia service on an HTTP server
+#### Starting a skir service on an HTTP server
 
-Full example [here](https://github.com/gepheum/soia-python-example/blob/main/start_service.py).
+Full example [here](https://github.com/gepheum/skir-python-example/blob/main/start_service.py).
 
-#### Sending RPCs to a soia service
+#### Sending RPCs to a skir service
 
-Full example [here](https://github.com/gepheum/soia-python-example/blob/main/call_service.py).
+Full example [here](https://github.com/gepheum/skir-python-example/blob/main/call_service.py).
 
 ### Reflection
 
-Reflection allows you to inspect a soia type at runtime.
+Reflection allows you to inspect a skir type at runtime.
 
 ```python
 field_names: list[str] = []
@@ -324,12 +324,12 @@ print(user_type_descriptor.as_json_code())
 # {
 #   "type": {
 #     "kind": "record",
-#     "value": "user.soia:User"
+#     "value": "user.skir:User"
 #   },
 #   "records": [
 #     {
 #       "kind": "struct",
-#       "id": "user.soia:User",
+#       "id": "user.skir:User",
 #       "fields": [
 #         {
 #           "name": "user_id",
@@ -347,7 +347,7 @@ print(user_type_descriptor.as_json_code())
 #             "value": {
 #               "item": {
 #                 "kind": "record",
-#                 "value": "user.soia:User.Pet"
+#                 "value": "user.skir:User.Pet"
 #               }
 #             }
 #           },
@@ -358,7 +358,7 @@ print(user_type_descriptor.as_json_code())
 #     },
 #     {
 #       "kind": "struct",
-#       "id": "user.soia:User.Pet",
+#       "id": "user.skir:User.Pet",
 #       ...
 #     },
 #     ...
@@ -366,7 +366,7 @@ print(user_type_descriptor.as_json_code())
 # }
 
 # A TypeDescriptor can be serialized and deserialized.
-assert user_type_descriptor == soia.reflection.TypeDescriptor.from_json_code(
+assert user_type_descriptor == skir.reflection.TypeDescriptor.from_json_code(
     user_type_descriptor.as_json_code()
 )
 ```
