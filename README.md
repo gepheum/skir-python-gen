@@ -17,7 +17,7 @@ In your `skir.yml` file, add the following snippet under `generators`:
     config: {}
 ```
 
-The `npm run skirc` command will now generate .py files within the `skirout` directory.
+The `npm run skir` command will now generate .py files within the `skirout` directory.
 
 For more information, see this Python project [example](https://github.com/gepheum/skir-python-example).
 
