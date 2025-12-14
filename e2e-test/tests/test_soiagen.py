@@ -1,5 +1,6 @@
 import unittest
 
+from skirout import methods_skir
 from skirout.constants_skir import ONE_CONSTANT
 from skirout.enums_skir import JsonValue, Weekday
 from skirout.full_name_skir import FullName
@@ -108,6 +109,10 @@ class SkiroutTestCase(unittest.TestCase):
     def test_name_collision(self):
         s = NameCollision.partial(serializer_=True)
         self.assertEqual(s.serializer_, True)
+
+    def test_method(self):
+        self.assertEqual(methods_skir.MyProcedure.name, "MyProcedure")
+        self.assertEqual(methods_skir.MyProcedure.doc, "My procedure")
 
     def test_or_mutable_type_is_defined(self):
         _ = FullName.OrMutable
