@@ -147,21 +147,9 @@ class PythonModuleCodeGenerator {
     const docstringArgsSection = makeDocstringArgsSection(fields);
     this.pushLine("@typing.final");
     this.pushLine(`class ${className.name}:`);
-    {
-      // Write class docstring.
-      const mutabilityNote = [
-        "Deeply immutable. ",
-        `If you need mutability, use '${className.name}.Mutable'.`,
-      ].join("");
-      if (doc.text) {
-        this.pushDocstring(
-          [getDocTextForDocstring(doc), "\n\n", mutabilityNote].join(""),
-        );
-      } else {
-        this.pushDocstring(mutabilityNote);
-      }
-      this.pushLine();
-    }
+    // Write class docstring.
+    this.pushDocstring(this.buildStructClassDocstring(doc, className.name));
+    this.pushLine();
     this.pushLine("def __init__(");
     this.pushLine(" _self,");
     this.writeStructFieldsAsParams(struct.record, "initializer", "no-default");
@@ -323,7 +311,7 @@ class PythonModuleCodeGenerator {
   private writeStructFieldsAsParams(
     struct: Record,
     flavor: "initializer" | "maybe-mutable",
-    default_: "no-default" | "keep" | "default",
+    defaultStyle: "no-default" | "keep" | "default",
   ): void {
     const { typeSpeller } = this;
     const { fields } = struct;
@@ -337,19 +325,19 @@ class PythonModuleCodeGenerator {
         flavor,
         !!allRecordsFrozen,
       );
-      if (default_ === "keep") {
-        pyType = PyType.union([pyType, PyType.of("skir.Keep")]);
+      if (defaultStyle === "keep") {
+        pyType = PyType.union([pyType, PyType.of(SKIR_KEEP_TYPE)]);
       }
       const attribute = structFieldToAttr(field.name.text);
-      if (default_ === "no-default") {
+      if (defaultStyle === "no-default") {
         this.pushLine(` ${attribute}: ${pyType},`);
-      } else if (default_ === "keep") {
-        this.pushLine(` ${attribute}: ${pyType} = skir.KEEP,`);
-      } else if (default_ === "default") {
+      } else if (defaultStyle === "keep") {
+        this.pushLine(` ${attribute}: ${pyType} = ${SKIR_KEEP_CONSTANT},`);
+      } else if (defaultStyle === "default") {
         const defaultValue = getDefaultValue(field.type!);
         this.pushLine(` ${attribute}: ${pyType} = ${defaultValue},`);
       } else {
-        const _: never = default_;
+        const _: never = defaultStyle;
       }
     }
   }
@@ -363,28 +351,19 @@ class PythonModuleCodeGenerator {
     const { qualifiedName } = className;
     this.pushLine("@typing.final");
     this.pushLine(`class ${className.name}:`);
-    {
-      let docstring = getDocTextForDocstring(enumDoc);
-      if (docstring) {
-        docstring += "\n";
-      }
-      docstring += `\nOne of ${variants.length + 1} variants:\n`;
-      docstring += `  - ${className.name}.UNKNOWN\n`;
-      for (const variant of constantVariants) {
-        const attr = enumConstantVariantToAttr(variant.name.text);
-        docstring += `  - ${className.name}.${attr}\n`;
-      }
-      for (const variant of wrapperVariants) {
-        docstring += `  - ${className.name}.wrap_${variant.name.text}(...)\n`;
-      }
-      docstring += "\nDeeply immutable.";
-      this.pushDocstring(docstring);
-    }
+    this.pushDocstring(
+      this.buildEnumClassDocstring(
+        enumDoc,
+        className.name,
+        constantVariants,
+        wrapperVariants,
+      ),
+    );
     this.pushLine();
     this.pushLine(`UNKNOWN: typing.Final["${qualifiedName}"] = _`);
     this.pushDocstring(
       [
-        `Constant indicating an unknown ${className.name}.\n\n`,
+        `Constant indicating an unknown ${className.name} (kind: "?").\n\n`,
         `Default value for fields of type ${className.name}.`,
       ].join(""),
     );
@@ -649,30 +628,10 @@ class PythonModuleCodeGenerator {
         const constantFields = variants.filter((f) => !f.type);
         const wrapperFields = variants.filter((f) => f.type);
         this.pushLine(`   constant_variants=(`);
-        for (const variant of constantFields) {
-          const variantName = variant.name.text;
-          const { doc: variantDoc } = variant;
-          this.pushLine("    _spec.ConstantVariant(");
-          this.pushLine(`     name="${variantName}",`);
-          this.pushLine(`     number=${variant.number},`);
-          if (variantDoc.text) {
-            this.pushLine(`     doc=${JSON.stringify(variantDoc.text)},`);
-          }
-          const attribute = enumConstantVariantToAttr(variantName);
-          if (attribute !== variantName) {
-            this.pushLine(`     _attribute="${attribute}",`);
-          }
-          this.pushLine("    ),");
-        }
+        this.writeConstantVariantsSpec(constantFields);
         this.pushLine("   ),");
         this.pushLine("   wrapper_variants=(");
-        for (const variant of wrapperFields) {
-          this.pushLine("    _spec.WrapperVariant(");
-          this.pushLine(`     name="${variant.name.text}",`);
-          this.pushLine(`     number=${variant.number},`);
-          this.pushLine(`     type=${this.typeToSpec(variant.type!)},`);
-          this.pushLine("    ),");
-        }
+        this.writeWrapperVariantsSpec(wrapperFields);
         this.pushLine("   ),");
       }
       this.pushLine("  ),");
@@ -716,15 +675,14 @@ class PythonModuleCodeGenerator {
     switch (type.kind) {
       case "array": {
         const itemSpec = this.typeToSpec(type.item);
-        let keyArg = "";
-        if (type.key) {
-          const attributes = type.key.path
-            .map((n) => `"${structFieldToAttr(n.name.text)}", `)
-            .join("")
-            .trimEnd();
-          keyArg = `, (${attributes})`;
+        if (!type.key) {
+          return `_spec.ArrayType(${itemSpec})`;
         }
-        return `_spec.ArrayType(${itemSpec}${keyArg})`;
+        const attributes = type.key.path
+          .map((n) => `"${structFieldToAttr(n.name.text)}"`)
+          .join(", ");
+        // Always add trailing comma to ensure it's a tuple even with single element
+        return `_spec.ArrayType(${itemSpec}, (${attributes},))`;
       }
       case "optional": {
         const otherSpec = this.typeToSpec(type.other);
@@ -789,14 +747,76 @@ class PythonModuleCodeGenerator {
     this.indent = this.indent.substring(0, this.indent.length - 4);
   }
 
+  private buildStructClassDocstring(doc: Doc, className: string): string {
+    const mutabilityNote = `Deeply immutable. If you need mutability, use '${className}.Mutable'.`;
+    if (doc.text) {
+      return `${getDocTextForDocstring(doc)}\n\n${mutabilityNote}`;
+    }
+    return mutabilityNote;
+  }
+
+  private buildEnumClassDocstring(
+    doc: Doc,
+    className: string,
+    constantVariants: readonly Field[],
+    wrapperVariants: readonly Field[],
+  ): string {
+    let docstring = getDocTextForDocstring(doc);
+    if (docstring) {
+      docstring += "\n";
+    }
+    const totalVariants = constantVariants.length + wrapperVariants.length;
+    docstring += `\nOne of ${totalVariants + 1} variants:\n`;
+    docstring += `  - ${className}.UNKNOWN\n`;
+    for (const variant of constantVariants) {
+      const attr = enumConstantVariantToAttr(variant.name.text);
+      docstring += `  - ${className}.${attr}\n`;
+    }
+    for (const variant of wrapperVariants) {
+      docstring += `  - ${className}.wrap_${variant.name.text}(...)\n`;
+    }
+    docstring += "\nDeeply immutable.";
+    return docstring;
+  }
+
+  private writeConstantVariantsSpec(variants: readonly Field[]): void {
+    for (const variant of variants) {
+      const variantName = variant.name.text;
+      const { doc: variantDoc } = variant;
+      this.pushLine("    _spec.ConstantVariant(");
+      this.pushLine(`     name="${variantName}",`);
+      this.pushLine(`     number=${variant.number},`);
+      if (variantDoc.text) {
+        this.pushLine(`     doc=${JSON.stringify(variantDoc.text)},`);
+      }
+      const attribute = enumConstantVariantToAttr(variantName);
+      if (attribute !== variantName) {
+        this.pushLine(`     _attribute="${attribute}",`);
+      }
+      this.pushLine("    ),");
+    }
+  }
+
+  private writeWrapperVariantsSpec(variants: readonly Field[]): void {
+    for (const variant of variants) {
+      this.pushLine("    _spec.WrapperVariant(");
+      this.pushLine(`     name="${variant.name.text}",`);
+      this.pushLine(`     number=${variant.number},`);
+      this.pushLine(`     type=${this.typeToSpec(variant.type!)},`);
+      this.pushLine("    ),");
+    }
+  }
+
   private readonly typeSpeller: TypeSpeller;
-  private code = "";
-  private indent = "";
+  private code: string = "";
+  private indent: string = "";
 }
 
 export const GENERATOR = new PythonCodeGenerator();
 
 const INDENT_UNIT = "    ";
+const SKIR_KEEP_CONSTANT = "skir.KEEP";
+const SKIR_KEEP_TYPE = "skir.Keep";
 
 function structFieldToAttr(fieldName: string): string {
   return PY_LOWER_CASE_KEYWORDS.has(fieldName) ||
