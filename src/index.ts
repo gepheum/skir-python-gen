@@ -1,6 +1,8 @@
 import type {
   CodeGenerator,
   Constant,
+  Doc,
+  Field,
   Method,
   Module,
   Record,
@@ -64,6 +66,8 @@ class PythonModuleCodeGenerator {
       "#  |___/   \\___/  |_| |_| \\___/  \\__|  \\___| \\__,_||_| \\__|",
     );
     this.pushLine("#");
+    this.pushLine(`# Generated from '${this.inModule.path}'`);
+    this.pushLine("#");
     this.pushLine("# To install the Skir client library:");
     this.pushLine("#   pip install skir-client");
     this.pushLine();
@@ -87,6 +91,12 @@ class PythonModuleCodeGenerator {
     }
 
     this.writeInitModuleCall();
+
+    this.pushLine();
+    this.pushLine();
+    this.pushLine("# To disable unused import warnings");
+    this.pushLine("collections.abc.Collection");
+    this.pushLine("typing.Final");
 
     return this.code;
   }
@@ -131,15 +141,38 @@ class PythonModuleCodeGenerator {
 
   private writeClassForStruct(struct: RecordLocation): void {
     const { typeSpeller } = this;
-    const { fields } = struct.record;
+    const { doc, fields } = struct.record;
     const className = getClassName(struct, this.inModule);
     const { qualifiedName } = className;
+    const docstringArgsSection = makeDocstringArgsSection(fields);
     this.pushLine("@typing.final");
     this.pushLine(`class ${className.name}:`);
+    {
+      // Write class docstring.
+      const mutabilityNote = [
+        "Deeply immutable class. ",
+        `If you need mutability, use '${className.name}.Mutable'.`,
+      ].join("");
+      if (doc.text) {
+        this.pushDocstring(
+          [getDocTextForDocstring(doc), "\n\n", mutabilityNote].join(""),
+        );
+      } else {
+        this.pushDocstring(mutabilityNote);
+      }
+      this.pushLine();
+    }
     this.pushLine("def __init__(");
     this.pushLine(" _self,");
     this.writeStructFieldsAsParams(struct.record, "initializer", "no-default");
-    this.pushLine("): ...");
+    this.pushLine("):");
+    if (fields.some((f) => f.doc.text)) {
+      this.pushDocstring(
+        `Initialize a new ${className.name} instance.${docstringArgsSection}`,
+      );
+    }
+    this.pushLine("...");
+    this.dedent();
     this.pushLine();
     this.pushLine("@staticmethod");
     this.pushLine("def partial(");
@@ -157,29 +190,67 @@ class PythonModuleCodeGenerator {
       const defaultValue = getDefaultValue(field.type!);
       this.pushLine(` ${attribute}: ${pyType} = ${defaultValue},`);
     }
-    this.pushLine(`) -> "${qualifiedName}": ...`);
+    this.pushLine(`) -> "${qualifiedName}":`);
+    this.pushDocstring(
+      [
+        `Create a new ${className.name} instance.\n\n`,
+        `Unlike ${className.name}(), this does not force you to specify all the fields.\n`,
+        "Missing fields are set to their default values.",
+        docstringArgsSection,
+      ].join(""),
+    );
+    this.pushLine("...");
+    this.dedent();
     this.pushLine();
     this.pushLine("def replace(");
     this.pushLine(" _self,");
     this.writeStructFieldsAsParams(struct.record, "initializer", "keep");
-    this.pushLine(`) -> "${qualifiedName}": ...`);
+    this.pushLine(`) -> "${qualifiedName}":`);
+    this.pushDocstring(
+      [
+        `Create a new ${className.name} instance with the specified fields replaced.`,
+        docstringArgsSection,
+      ].join(""),
+    );
+    this.pushLine("...");
+    this.dedent();
     for (const field of struct.record.fields) {
       const attribute = structFieldToAttr(field.name.text);
       const pyType = typeSpeller.getPyType(field.type!, "frozen");
       this.pushLine();
       this.pushLine("@property");
-      this.pushLine(`def ${attribute}(self) -> ${pyType}: ...`);
+      this.pushLine(`def ${attribute}(self) -> ${pyType}:`);
+      this.pushDocstring(getDocTextForDocstring(field.doc));
+      this.pushLine("...");
+      this.dedent();
     }
     this.pushLine();
-    this.pushLine(`def to_frozen(self) -> "${qualifiedName}": ...`);
-    this.pushLine(`def to_mutable(self) -> "${qualifiedName}.Mutable": ...`);
+    this.pushLine(`def to_frozen(self) -> "${qualifiedName}":`);
+    this.pushDocstring(`Return this ${qualifiedName} instance (no-op).`);
+    this.pushLine("...");
+    this.dedent();
+    this.pushLine();
+    this.pushLine(`def to_mutable(self) -> "${qualifiedName}.Mutable":`);
+    this.pushDocstring(
+      `Return a mutable copy of this ${qualifiedName} instance.`,
+    );
+    this.pushLine("...");
+    this.dedent();
     this.pushLine();
     this.pushLine("@typing.final");
     this.pushLine("class Mutable:");
+    this.pushDocstring(`Mutable version of ${qualifiedName}.`);
+    this.pushLine();
     this.pushLine("def __init__(");
     this.pushLine(" _self,");
     this.writeStructFieldsAsParams(struct.record, "maybe-mutable", "default");
-    this.pushLine("): ...");
+    this.pushLine("):");
+    if (fields.some((f) => f.doc.text)) {
+      const docstring = `Initialize a new mutable instance.${docstringArgsSection}`;
+      this.pushDocstring(docstring);
+    }
+    this.pushLine("...");
+    this.dedent();
     this.pushLine();
     for (const field of struct.record.fields) {
       const allRecordsFrozen = !!field.isRecursive;
@@ -190,6 +261,10 @@ class PythonModuleCodeGenerator {
         allRecordsFrozen,
       );
       this.pushLine(`${attribute}: ${pyType}`);
+      if (field.doc.text) {
+        this.pushDocstring(getDocTextForDocstring(field.doc));
+        this.pushLine();
+      }
     }
     this.pushLine();
     for (const field of struct.record.fields) {
@@ -202,22 +277,47 @@ class PythonModuleCodeGenerator {
           .toString() !== mutableType.toString();
       if (!hasMutableGetter) continue;
       this.pushLine("@property");
-      this.pushLine(
-        `def mutable_${field.name.text}(self) -> ${mutableType}: ...`,
+      this.pushLine(`def mutable_${field.name.text}(self) -> ${mutableType}:`);
+      this.pushDocstring(
+        [
+          `If the value of '${field.name.text}' is already mutable, return it as-is.\n`,
+          `Otherwise, make a mutable copy, assign it back to '${field.name.text}' and return it.`,
+        ].join(""),
       );
+      this.pushLine("...");
+      this.dedent();
       this.pushLine();
     }
-    this.pushLine(`def to_frozen(self) -> "${qualifiedName}": ...`);
+    this.pushLine(`def to_frozen(self) -> "${qualifiedName}":`);
+    this.pushDocstring(
+      "Create a deeply immutable copy of this mutable instance.",
+    );
+    this.pushLine("...");
+    this.dedent();
     this.dedent();
     this.pushLine();
     this.pushLine(
       `OrMutable: typing.TypeAlias = "${qualifiedName} | ${qualifiedName}.Mutable"`,
     );
+    this.pushDocstring(
+      [
+        "Type alias for the union of ",
+        qualifiedName,
+        " and '",
+        qualifiedName,
+        ".Mutable'.",
+      ].join(""),
+    );
     this.pushLine();
     this.pushLine(`DEFAULT: typing.Final["${qualifiedName}"] = _`);
+    this.pushDocstring(
+      `Default ${qualifiedName} instance with all fields set to their default values.`,
+    );
+    this.pushLine();
     this.pushLine(
       `serializer: typing.Final[skir.Serializer["${qualifiedName}"]] = _`,
     );
+    this.pushDocstring(`Serializer for ${qualifiedName} instances.`);
   }
 
   private writeStructFieldsAsParams(
@@ -564,6 +664,27 @@ class PythonModuleCodeGenerator {
     }
   }
 
+  private pushDocstring(doc: string): void {
+    const { indent } = this;
+    if (doc) {
+      const docLines = doc.split("\n");
+      const firstLine = docLines[0];
+      if (docLines.length === 1) {
+        this.code += `${indent}"""${firstLine}"""\n`;
+      } else {
+        this.code += `${indent}"""${firstLine}\n`;
+        for (const line of docLines.slice(1)) {
+          if (line === "") {
+            this.code += "\n";
+          } else {
+            this.code += `${indent}${line}\n`;
+          }
+        }
+        this.code += `${indent}"""\n`;
+      }
+    }
+  }
+
   private dedent(): void {
     this.indent = this.indent.substring(0, this.indent.length - 4);
   }
@@ -619,6 +740,35 @@ function getDefaultValue(type: ResolvedType): string {
     case "record":
       return "_";
   }
+}
+
+function makeDocstringArgsSection(fields: readonly Field[]): string {
+  const fieldsWithDoc = fields.filter((f) => f.doc.text);
+  if (fieldsWithDoc.length <= 0) {
+    return "";
+  }
+  let docstring = "\n\nArgs:";
+  for (const field of fieldsWithDoc) {
+    const fieldDoc = getDocTextForDocstring(field.doc).replace(
+      /\n/g,
+      "\n        ",
+    );
+    docstring += `\n    ${field.name.text}: ${fieldDoc}`;
+  }
+  return docstring;
+}
+
+function getDocTextForDocstring(doc: Doc): string {
+  return doc.pieces
+    .map((p) => {
+      switch (p.kind) {
+        case "text":
+          return p.text;
+        case "reference":
+          return `'${p.docComment.text.slice(1, -1)}'`;
+      }
+    })
+    .join("");
 }
 
 /** Python keywords in lower_case format. */

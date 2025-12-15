@@ -1,3 +1,4 @@
+/// Day of the week
 enum Weekday {
   MONDAY;
   TUESDAY;
