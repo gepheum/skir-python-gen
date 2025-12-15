@@ -867,7 +867,7 @@ function getDocTextForDocstring(
         case "text":
           return p.text;
         case "reference":
-          return `'${p.docComment.text.slice(1, -1)}'`;
+          return `'${p.referenceRange.text.slice(1, -1)}'`;
       }
     })
     .join("");

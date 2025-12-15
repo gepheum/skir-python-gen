@@ -2,6 +2,7 @@ import JsonValue from "./enums.skir";
 
 /// One constant
 /// Other line
+/// And a reference to [ONE_TIMESTAMP].
 const ONE_CONSTANT: JsonValue = {
   kind: "array",
   value: [
