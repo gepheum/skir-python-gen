@@ -150,7 +150,7 @@ class PythonModuleCodeGenerator {
     {
       // Write class docstring.
       const mutabilityNote = [
-        "Deeply immutable class. ",
+        "Deeply immutable. ",
         `If you need mutability, use '${className.name}.Mutable'.`,
       ].join("");
       if (doc.text) {
@@ -166,7 +166,7 @@ class PythonModuleCodeGenerator {
     this.pushLine(" _self,");
     this.writeStructFieldsAsParams(struct.record, "initializer", "no-default");
     this.pushLine("):");
-    if (fields.some((f) => f.doc.text)) {
+    if (docstringArgsSection) {
       this.pushDocstring(
         `Initialize a new ${className.name} instance.${docstringArgsSection}`,
       );
@@ -193,7 +193,7 @@ class PythonModuleCodeGenerator {
     this.pushLine(`) -> "${qualifiedName}":`);
     this.pushDocstring(
       [
-        `Create a new ${className.name} instance.\n\n`,
+        `Create a ${className.name} instance.\n\n`,
         `Unlike ${className.name}(), this does not force you to specify all the fields.\n`,
         "Missing fields are set to their default values.",
         docstringArgsSection,
@@ -208,7 +208,7 @@ class PythonModuleCodeGenerator {
     this.pushLine(`) -> "${qualifiedName}":`);
     this.pushDocstring(
       [
-        `Create a new ${className.name} instance with the specified fields replaced.`,
+        `Create a ${className.name} instance with the specified fields replaced.`,
         docstringArgsSection,
       ].join(""),
     );
@@ -245,7 +245,7 @@ class PythonModuleCodeGenerator {
     this.pushLine(" _self,");
     this.writeStructFieldsAsParams(struct.record, "maybe-mutable", "default");
     this.pushLine("):");
-    if (fields.some((f) => f.doc.text)) {
+    if (docstringArgsSection) {
       const docstring = `Initialize a new mutable instance.${docstringArgsSection}`;
       this.pushDocstring(docstring);
     }
@@ -317,7 +317,7 @@ class PythonModuleCodeGenerator {
     this.pushLine(
       `serializer: typing.Final[skir.Serializer["${qualifiedName}"]] = _`,
     );
-    this.pushDocstring(`Serializer for ${qualifiedName} instances.`);
+    this.pushDocstring(`Serializer for ${className.name} instances.`);
   }
 
   private writeStructFieldsAsParams(
@@ -356,17 +356,46 @@ class PythonModuleCodeGenerator {
 
   private writeClassForEnum(record: RecordLocation): void {
     const { typeSpeller } = this;
-    const { fields: variants } = record.record;
+    const { doc: enumDoc, fields: variants } = record.record;
     const constantVariants = variants.filter((v) => !v.type);
     const wrapperVariants = variants.filter((v) => v.type);
     const className = getClassName(record, this.inModule);
     const { qualifiedName } = className;
     this.pushLine("@typing.final");
     this.pushLine(`class ${className.name}:`);
+    {
+      let docstring = getDocTextForDocstring(enumDoc);
+      if (docstring) {
+        docstring += "\n";
+      }
+      docstring += `\nOne of ${variants.length + 1} variants:\n`;
+      docstring += `  - ${className.name}.UNKNOWN\n`;
+      for (const variant of constantVariants) {
+        const attr = enumConstantVariantToAttr(variant.name.text);
+        docstring += `  - ${className.name}.${attr}\n`;
+      }
+      for (const variant of wrapperVariants) {
+        docstring += `  - ${className.name}.wrap_${variant.name.text}(...)\n`;
+      }
+      docstring += "\nDeeply immutable.";
+      this.pushDocstring(docstring);
+    }
+    this.pushLine();
     this.pushLine(`UNKNOWN: typing.Final["${qualifiedName}"] = _`);
+    this.pushDocstring(
+      [
+        `Constant indicating an unknown ${className.name}.\n\n`,
+        `Default value for fields of type ${className.name}.`,
+      ].join(""),
+    );
+    this.pushLine();
     for (const constantVariant of constantVariants) {
-      const attribute = enumWrapperVariantToAttr(constantVariant.name.text);
+      const attribute = enumConstantVariantToAttr(constantVariant.name.text);
       this.pushLine(`${attribute}: typing.Final["${qualifiedName}"] = _`);
+      if (constantVariant.doc.text) {
+        this.pushDocstring(getDocTextForDocstring(constantVariant.doc));
+        this.pushLine();
+      }
     }
     for (const wrapperVariant of wrapperVariants) {
       const name = wrapperVariant.name.text;
@@ -375,8 +404,17 @@ class PythonModuleCodeGenerator {
       this.pushLine();
       this.pushLine("@staticmethod");
       this.pushLine(
-        `def wrap_${name}(value: ${pyType}) -> "${qualifiedName}": ...`,
+        `def wrap_${name}(value: ${pyType}) -> "${qualifiedName}":`,
       );
+      this.pushDocstring(
+        [
+          `Create a ${className.name} variant wrapping around the given ${name} value.`,
+          wrapperVariant.doc.text ? "\n\nArgs:\n    value: " : "",
+          getDocTextForDocstring(wrapperVariant.doc, "double-indent"),
+        ].join(""),
+      );
+      this.pushLine("...");
+      this.dedent();
       if (type.kind === "record") {
         const { record } = typeSpeller.recordMap.get(type.key)!;
         if (record.recordType === "struct") {
@@ -384,12 +422,25 @@ class PythonModuleCodeGenerator {
           this.pushLine("@staticmethod");
           this.pushLine(`def create_${name}(`);
           this.writeStructFieldsAsParams(record, "initializer", "no-default");
-          this.pushLine(`) -> "${qualifiedName}": ...`);
+          this.pushLine(`) -> "${qualifiedName}":`);
+          {
+            let docstring = `Create a ${className.name} variant wrapping around a new ${name} struct.`;
+            if (record.doc.text) {
+              docstring += `\n\n${getDocTextForDocstring(record.doc)}`;
+            }
+            docstring += makeDocstringArgsSection(record.fields);
+            this.pushDocstring(docstring);
+          }
+          this.pushLine("...");
+          this.dedent();
         }
       }
     }
     this.pushLine();
-    this.pushLine("def __init__(self, _: typing.NoReturn): ...");
+    this.pushLine("def __init__(self, _: typing.NoReturn):");
+    this.pushDocstring("Internal constructor, do not call.");
+    this.pushLine("...");
+    this.dedent();
     if (variants.length === 0) {
       return;
     }
@@ -404,40 +455,73 @@ class PythonModuleCodeGenerator {
       const kindType = PyType.quote(`${qualifiedName}.Kind`);
       this.pushLine();
       this.pushLine("@property");
-      this.pushLine(`def kind(self) -> ${kindType}: ...`);
+      this.pushLine(`def kind(self) -> ${kindType}:`);
+      {
+        let docstring = `Identifies the variant for this ${className.name} instance.`;
+        if (wrapperVariants.length > 0) {
+          docstring += [
+            "\n\nIf you plan to access the value held by the wrapper variants ('union.value'),\n",
+            "using 'union.kind' will give you more type safety.",
+          ].join("");
+        }
+        this.pushDocstring(docstring);
+      }
+      this.pushLine("...");
+      this.dedent();
     }
-    {
-      const typesInUnion: PyType[] = wrapperVariants.map((f) =>
-        typeSpeller.getPyType(f.type!, "frozen"),
-      );
-      typesInUnion.push(PyType.NONE);
-      const valueType = PyType.union(typesInUnion);
-      this.pushLine();
-      this.pushLine("@property");
-      this.pushLine(`def value(self) -> ${valueType}: ...`);
-    }
-    {
-      const getVariantType = (name: string): PyType =>
-        PyType.quote(`${qualifiedName}._${name}`);
-      const typesInUnion = [getVariantType("Unknown")].concat(
-        variants.map((v) => getVariantType(v.name.text)),
-      );
-      this.pushLine();
-      this.pushLine("@property");
-      this.pushLine(`def union(self) -> ${PyType.union(typesInUnion)}: ...`);
-    }
-    this.writeVariantClass("Unknown", PyType.NONE, "?");
-    for (const variant of variants) {
-      const variantName = variant.name.text;
-      const valueType = variant.type
-        ? typeSpeller.getPyType(variant.type, "frozen")
-        : PyType.NONE;
-      this.writeVariantClass(variantName, valueType);
+    if (wrapperVariants.length !== 0) {
+      {
+        const getVariantType = (name: string): PyType =>
+          PyType.quote(`${qualifiedName}._${name}`);
+        const typesInUnion = [getVariantType("Unknown")].concat(
+          variants.map((v) => getVariantType(v.name.text)),
+        );
+        this.pushLine();
+        this.pushLine("@property");
+        this.pushLine(`def union(self) -> ${PyType.union(typesInUnion)}:`);
+        {
+          const docstringLines = [
+            "This instance as the union of all the variant types.\n",
+            "Helps write type-safe code when dealing with wrapper variants.\n",
+            "Example:",
+          ];
+          docstringLines.push(`${INDENT_UNIT}if enum.union.kind == "?":`);
+          docstringLines.push(`${INDENT_UNIT}${INDENT_UNIT}...`);
+          for (const variant of variants) {
+            docstringLines.push(
+              `${INDENT_UNIT}elif enum.union.kind == "${variant.name.text}":`,
+            );
+            if (variant.type) {
+              const pyType = typeSpeller.getPyType(variant.type, "frozen");
+              docstringLines.push(
+                `${INDENT_UNIT}${INDENT_UNIT}value = enum.union.value  # type known to be ${pyType}`,
+              );
+            }
+            docstringLines.push(`${INDENT_UNIT}${INDENT_UNIT}...`);
+          }
+          docstringLines.push(`${INDENT_UNIT}else:`);
+          docstringLines.push(
+            `${INDENT_UNIT}${INDENT_UNIT}_: Never = enum.union.kind`,
+          );
+          this.pushDocstring(docstringLines.join("\n"));
+        }
+        this.pushLine("...");
+        this.dedent();
+      }
+      this.writeVariantClass("Unknown", PyType.NONE, "?");
+      for (const variant of variants) {
+        const variantName = variant.name.text;
+        const valueType = variant.type
+          ? typeSpeller.getPyType(variant.type, "frozen")
+          : PyType.NONE;
+        this.writeVariantClass(variantName, valueType);
+      }
     }
     this.pushLine();
     this.pushLine(
       `serializer: typing.Final[skir.Serializer["${qualifiedName}"]] = _`,
     );
+    this.pushDocstring(`Serializer for ${className.name} instances.`);
   }
 
   private writeVariantClass(
@@ -449,11 +533,21 @@ class PythonModuleCodeGenerator {
     this.pushLine(`class _${variantName}(typing.Protocol):`);
     this.pushLine("@property");
     this.pushLine(
-      `def kind(self) -> typing.Literal["${kind || variantName}"]: ...`,
+      `def kind(self) -> typing.Literal["${kind || variantName}"]:`,
     );
+    this.pushDocstring(`Always "${kind || variantName}".`);
+    this.pushLine("...");
+    this.dedent();
     this.pushLine();
     this.pushLine("@property");
-    this.pushLine(`def value(self) -> ${valueType}: ...`);
+    this.pushLine(`def value(self) -> ${valueType}:`);
+    this.pushDocstring(
+      valueType === PyType.NONE
+        ? "Always None."
+        : `The ${variantName} value held by this wrapper variant.`,
+    );
+    this.pushLine("...");
+    this.dedent();
     this.dedent();
   }
 
@@ -468,6 +562,9 @@ class PythonModuleCodeGenerator {
     const methodType = `skir.Method[${requestType}, ${responseType}]`;
     this.pushLine();
     this.pushLine(`${varName}: typing.Final[${methodType}] = _`);
+    if (method.doc.text) {
+      this.pushDocstring(getDocTextForDocstring(method.doc));
+    }
   }
 
   private writeConstant(constant: Constant): void {
@@ -476,6 +573,9 @@ class PythonModuleCodeGenerator {
     const type = typeSpeller.getPyType(constant.type!, "frozen");
     this.pushLine();
     this.pushLine(`${name}: typing.Final[${type}] = _`);
+    if (constant.doc.text) {
+      this.pushDocstring(getDocTextForDocstring(constant.doc));
+    }
   }
 
   private writeInitModuleCall(): void {
@@ -558,7 +658,7 @@ class PythonModuleCodeGenerator {
           if (variantDoc.text) {
             this.pushLine(`     doc=${JSON.stringify(variantDoc.text)},`);
           }
-          const attribute = enumWrapperVariantToAttr(variantName);
+          const attribute = enumConstantVariantToAttr(variantName);
           if (attribute !== variantName) {
             this.pushLine(`     _attribute="${attribute}",`);
           }
@@ -660,7 +760,7 @@ class PythonModuleCodeGenerator {
     }
     this.code += `${this.indent}${code}\n`;
     if (code.endsWith(":") && !code.startsWith("#")) {
-      this.indent += "    ";
+      this.indent += INDENT_UNIT;
     }
   }
 
@@ -696,6 +796,8 @@ class PythonModuleCodeGenerator {
 
 export const GENERATOR = new PythonCodeGenerator();
 
+const INDENT_UNIT = "    ";
+
 function structFieldToAttr(fieldName: string): string {
   return PY_LOWER_CASE_KEYWORDS.has(fieldName) ||
     STRUCT_GEN_LOWER_SYMBOLS.has(fieldName) ||
@@ -704,8 +806,8 @@ function structFieldToAttr(fieldName: string): string {
     : fieldName;
 }
 
-function enumWrapperVariantToAttr(variantName: string): string {
-  return STRUCT_GEN_UPPER_SYMBOLS.has(variantName)
+function enumConstantVariantToAttr(variantName: string): string {
+  return ENUM_GEN_UPPER_SYMBOLS.has(variantName)
     ? `${variantName}_`
     : variantName;
 }
@@ -749,17 +851,17 @@ function makeDocstringArgsSection(fields: readonly Field[]): string {
   }
   let docstring = "\n\nArgs:";
   for (const field of fieldsWithDoc) {
-    const fieldDoc = getDocTextForDocstring(field.doc).replace(
-      /\n/g,
-      "\n        ",
-    );
+    const fieldDoc = getDocTextForDocstring(field.doc, "double-indent");
     docstring += `\n    ${field.name.text}: ${fieldDoc}`;
   }
   return docstring;
 }
 
-function getDocTextForDocstring(doc: Doc): string {
-  return doc.pieces
+function getDocTextForDocstring(
+  doc: Doc,
+  doubleIndent?: "double-indent",
+): string {
+  const docstring = doc.pieces
     .map((p) => {
       switch (p.kind) {
         case "text":
@@ -769,6 +871,9 @@ function getDocTextForDocstring(doc: Doc): string {
       }
     })
     .join("");
+  return doubleIndent
+    ? docstring.replace(/\n/g, `\n${INDENT_UNIT}${INDENT_UNIT}`)
+    : docstring;
 }
 
 /** Python keywords in lower_case format. */
@@ -817,6 +922,6 @@ const STRUCT_GEN_LOWER_SYMBOLS: ReadonlySet<string> = new Set<string>([
 ]);
 
 /** Name of UPPER_CASE formatted symbols generated in the Python class for an enum. */
-const STRUCT_GEN_UPPER_SYMBOLS: ReadonlySet<string> = new Set<string>([
+const ENUM_GEN_UPPER_SYMBOLS: ReadonlySet<string> = new Set<string>([
   "UNKNOWN",
 ]);
