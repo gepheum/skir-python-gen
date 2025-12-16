@@ -35,6 +35,9 @@ export class TypeSpeller {
   constructor(
     readonly recordMap: ReadonlyMap<RecordKey, RecordLocation>,
     private readonly origin: Module,
+    private readonly config: {
+      packagePrefix?: string;
+    },
   ) {}
 
   getPyType(
@@ -63,6 +66,7 @@ export class TypeSpeller {
         const className = getClassName(
           recordLocation,
           this.origin,
+          this.config,
         ).qualifiedName;
         if (record.recordType === "struct") {
           if (flavor === "frozen" || allRecordsFrozen) {
@@ -162,6 +166,6 @@ export class TypeSpeller {
 
   getClassName(recordKey: RecordKey): ClassName {
     const record = this.recordMap.get(recordKey)!;
-    return getClassName(record, this.origin);
+    return getClassName(record, this.origin, this.config);
   }
 }

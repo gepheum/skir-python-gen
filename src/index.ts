@@ -11,13 +11,22 @@ import type {
   ResolvedType,
 } from "skir-internal";
 import { z } from "zod";
-import { PY_UPPER_CAMEL_KEYWORDS, getClassName } from "./class_speller.js";
+import {
+  ClassName,
+  PY_UPPER_CAMEL_KEYWORDS,
+  getClassName,
+} from "./class_speller.js";
 import { PyType } from "./py_type.js";
 import { TypeSpeller } from "./type_speller.js";
 
-const Config = z.object({});
+const Config = z.object({
+  packagePrefix: z
+    .string()
+    .regex(/^([a-z_$][a-z0-9_$]*\.)*$/)
+    .optional(),
+});
 
-type Config = z.infer<typeof Config>;
+export type Config = z.infer<typeof Config>;
 
 class PythonCodeGenerator implements CodeGenerator<Config> {
   readonly id = "python";
@@ -48,7 +57,7 @@ class PythonModuleCodeGenerator {
     recordMap: ReadonlyMap<RecordKey, RecordLocation>,
     private readonly config: Config,
   ) {
-    this.typeSpeller = new TypeSpeller(recordMap, inModule);
+    this.typeSpeller = new TypeSpeller(recordMap, inModule, config);
   }
 
   generate(): string {
@@ -110,7 +119,11 @@ class PythonModuleCodeGenerator {
       // We will refer to the imported symbols using the long notation:
       //    skirout.path.to.module_skir.Foo
       this.pushLine(
-        `import skirout.${path.replace(/\.skir$/, "").replace("/", ".")}_skir`,
+        "import " +
+          (this.config.packagePrefix ?? "") +
+          "skirout." +
+          path.replace(/\.skir$/, "").replace("/", ".") +
+          "_skir",
       );
     }
     this.pushLine("import skir");
@@ -142,7 +155,7 @@ class PythonModuleCodeGenerator {
   private writeClassForStruct(struct: RecordLocation): void {
     const { typeSpeller } = this;
     const { doc, fields } = struct.record;
-    const className = getClassName(struct, this.inModule);
+    const className = this.getClassName(struct);
     const { qualifiedName } = className;
     const docstringArgsSection = makeDocstringArgsSection(fields);
     this.pushLine("@typing.final");
@@ -347,7 +360,7 @@ class PythonModuleCodeGenerator {
     const { doc: enumDoc, fields: variants } = record.record;
     const constantVariants = variants.filter((v) => !v.type);
     const wrapperVariants = variants.filter((v) => v.type);
-    const className = getClassName(record, this.inModule);
+    const className = this.getClassName(record);
     const { qualifiedName } = className;
     this.pushLine("@typing.final");
     this.pushLine(`class ${className.name}:`);
@@ -565,7 +578,7 @@ class PythonModuleCodeGenerator {
     this.pushLine(" records=(");
     for (const record of inModule.records) {
       const { doc: recordDoc, recordType, removedNumbers } = record.record;
-      const className = getClassName(record, inModule);
+      const className = this.getClassName(record);
       const recordQualname = record.recordAncestors
         .map((r) => r.name.text)
         .join(".");
@@ -805,6 +818,10 @@ class PythonModuleCodeGenerator {
       this.pushLine(`     type=${this.typeToSpec(variant.type!)},`);
       this.pushLine("    ),");
     }
+  }
+
+  private getClassName(record: RecordLocation): ClassName {
+    return getClassName(record, this.inModule, this.config);
   }
 
   private readonly typeSpeller: TypeSpeller;

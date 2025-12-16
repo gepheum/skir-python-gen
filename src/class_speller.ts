@@ -14,6 +14,9 @@ export interface ClassName {
 export function getClassName(
   record: RecordLocation,
   origin: Module,
+  config: {
+    packagePrefix?: string;
+  },
 ): ClassName {
   const { recordAncestors } = record;
   const parts: string[] = [];
@@ -38,7 +41,8 @@ export function getClassName(
     // The record is located in an imported module.
     const path = record.modulePath;
     const importPath = path.replace(/\.skir$/, "").replace("/", ".");
-    qualifiedName = `skirout.${importPath}_skir.${qualifiedName}`;
+    const packagePrefix = config.packagePrefix ?? "";
+    qualifiedName = `${packagePrefix}.skirout.${importPath}_skir.${qualifiedName}`;
   }
 
   return {
