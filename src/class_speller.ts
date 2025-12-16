@@ -42,7 +42,7 @@ export function getClassName(
     const path = record.modulePath;
     const importPath = path.replace(/\.skir$/, "").replace("/", ".");
     const packagePrefix = config.packagePrefix ?? "";
-    qualifiedName = `${packagePrefix}.skirout.${importPath}_skir.${qualifiedName}`;
+    qualifiedName = `${packagePrefix}skirout.${importPath}_skir.${qualifiedName}`;
   }
 
   return {
