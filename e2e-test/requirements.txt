@@ -1,1 +1,1 @@
-skir-client >= 0.0.1
+skir-client >= 0.0.2
