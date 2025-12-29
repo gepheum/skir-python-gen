@@ -2,4 +2,5 @@ srcDir: ./skir-src
 
 generators:
   - mod: ../../../dist/index.js
+    outDir: ./skirout
     config: {}

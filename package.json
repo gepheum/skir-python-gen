@@ -1,6 +1,6 @@
 {
   "name": "skir-python-gen",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "",
   "keywords": [],
   "repository": {
@@ -23,7 +23,7 @@
   "scripts": {
     "build": "tsc",
     "format-skir": "cd e2e-test && skir format && cd ..",
-    "format-skir:check": "cd e2e-test && skir format check && cd ..",
+    "format-skir:check": "cd e2e-test && skir format --ci && cd ..",
     "format-python": "cd e2e-test && black . && cd ..",
     "format-python:check": "cd e2e-test && black --check --diff . && cd ..",
     "format": "prettier --write \"**/*.ts\" && npm run format-skir && npm run format-python",
@@ -34,18 +34,25 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
   },
+  "dependencies": {
+    "skir-internal": "^0.0.8",
+    "zod": "^4.2.1"
+  },
   "devDependencies": {
-    "@types/node": "^20.11.5",
-    "@typescript-eslint/eslint-plugin": "^6.13.0",
-    "@typescript-eslint/parser": "^6.13.0",
-    "eslint": "^8.54.0",
+    "@eslint/js": "^9.39.2",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
+    "buckwheat": "^1.1.2",
+    "eslint": "^9.39.2",
+    "mocha": "^11.7.5",
     "prettier": "^3.2.4",
     "prettier-plugin-organize-imports": "^4.2.0",
-    "skir": "^0.0.3",
+    "skir": "^0.0.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
-  },
-  "dependencies": {
-    "skir-internal": "^0.0.5"
+    "tsx": "^4.21.0",
+    "typescript": "^5.2.2",
+    "typescript-eslint": "^8.50.1"
   }
 }
