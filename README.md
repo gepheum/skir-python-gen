@@ -7,17 +7,14 @@ Official plugin for generating Python code from [.skir](https://github.com/gephe
 
 Targets Python 3.10 and higher.
 
-## Installation
-
-From your project's root directory, run `npm i --save-dev skir-python-gen`.
+## Set up
 
 In your `skir.yml` file, add the following snippet under `generators`:
 ```yaml
   - mod: skir-python-gen
+    outDir: ./src/skirout
     config: {}
 ```
-
-The `npm run skir` command will now generate .py files within the `skirout` directory.
 
 For more information, see this Python project [example](https://github.com/gepheum/skir-python-example).
 
@@ -29,7 +26,7 @@ The examples below are for the code generated from [this](https://github.com/gep
 
 ```python
 # Import the given symbols from the Python module generated from "user.skir"
-from skirout.user_skir import TARZAN, User, UserHistory, UserRegistry
+from skirout.user_skir import TARZAN, SubscriptionStatus, User, UserHistory, UserRegistry
 ```
 
 ### Struct classes
@@ -53,7 +50,7 @@ john = User(
             picture="🐘",
         ),
     ],
-    subscription_status=User.SubscriptionStatus.FREE,
+    subscription_status=SubscriptionStatus.FREE,
     # foo="bar",
     # Does not compile: 'foo' is not a field of User
 )
@@ -76,6 +73,8 @@ jane = User.partial(
 # Missing fields are initialized to their default values.
 assert jane.quote == ""
 
+# 'User.DEFAULT' is a constant holding the result of calling 'User.partial()'
+# with no arguments.
 assert User.DEFAULT == User.partial()
 ```
 
@@ -160,43 +159,53 @@ enum SubscriptionStatus {
 #### Making enum values
 
 ```python
-john_status = User.SubscriptionStatus.FREE
-jane_status = User.SubscriptionStatus.PREMIUM
+john_status = SubscriptionStatus.FREE
+jane_status = SubscriptionStatus.PREMIUM
 
-joly_status = User.SubscriptionStatus.UNKNOWN
+joly_status = SubscriptionStatus.UNKNOWN
 
-# Use wrap_*() for data variants.
-roni_status = User.SubscriptionStatus.wrap_trial(
-    User.Trial(start_time=skir.Timestamp.from_unix_millis(1744974198000))
+# Use wrap_*() for wrapper variants.
+roni_status = SubscriptionStatus.wrap_trial(
+    SubscriptionStatus.Trial(
+        start_time=skir.Timestamp.from_unix_millis(1744974198000),
+    )
+)
+
+# If the wrapped value is a field, you can use create_*(...) instead of
+# wrap_*(Struct(...))
+assert roni_status == SubscriptionStatus.create_trial(
+    start_time=skir.Timestamp.from_unix_millis(1744974198000)
 )
 ```
 
 #### Conditions on enums
 
 ```python
-# Use e.kind == "CONSTANT_NAME" to check if the enum value is a constant.
-assert john_status.kind == "FREE"
-assert john_status.value is None
+# Use 'union.kind' to check which variant the enum value holds.
+assert john_status.union.kind == "FREE"
 
 # Static type checkers will complain: "RED" not in the enum definition.
-# assert jane_status.kind == "RED"
+# assert jane_status.union.kind == "RED"
 
 # Use "?" for UNKNOWN.
-assert joly_status.kind == "?"
+assert joly_status.union.kind == "?"
 
-assert roni_status.kind == "trial"
-assert isinstance(roni_status.value, User.Trial)
+assert roni_status.union.kind == "trial"
+# If the enum holds a wrapper variant, you can access the wrapped value through
+# 'union.value'.
+assert isinstance(roni_status.union.value, SubscriptionStatus.Trial)
 
 
-def get_subscription_info_text(status: User.SubscriptionStatus) -> str:
-    # Use the union() getter for typesafe switches on enums.
+def get_subscription_info_text(status: SubscriptionStatus) -> str:
+    # Pattern matching on enum variants
     if status.union.kind == "?":
         return "Unknown subscription status"
     elif status.union.kind == "FREE":
         return "Free user"
     elif status.union.kind == "trial":
-        # Here the compiler knows that the type of union.value is 'User.Trial'
-        trial: User.Trial = status.union.value
+        # Here the compiler knows that the type of 'union.value' is
+        # 'SubscriptionStatus.Trial'
+        trial = status.union.value
         return f"On trial since {trial.start_time}"
     elif status.union.kind == "PREMIUM":
         return "Premium user"
@@ -287,8 +296,8 @@ print(TARZAN)
 #       picture='🐒',
 #     ),
 #   ],
-#   subscription_status=User.SubscriptionStatus.wrap_trial(
-#     User.Trial(
+#   subscription_status=SubscriptionStatus.wrap_trial(
+#     SubscriptionStatus.Trial(
 #       start_time=Timestamp(
 #         unix_millis=1743592409000,
 #         _formatted='2025-04-02T11:13:29Z',
