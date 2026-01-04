@@ -388,10 +388,10 @@ def evaluate_typed_value(literal: TypedValue) -> TypedValueType[Any]:
             value=literal.union.value,
             serializer=skir.primitive_serializer("int64"),
         )
-    elif literal.union.kind == "uint64":
+    elif literal.union.kind == "hash64":
         return TypedValueType(
             value=literal.union.value,
-            serializer=skir.primitive_serializer("uint64"),
+            serializer=skir.primitive_serializer("hash64"),
         )
     elif literal.union.kind == "float32":
         return TypedValueType(

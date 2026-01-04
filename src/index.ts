@@ -821,7 +821,7 @@ function getDefaultValue(type: ResolvedType): string {
           return "False";
         case "int32":
         case "int64":
-        case "uint64":
+        case "hash64":
           return "0";
         case "float32":
         case "float64":

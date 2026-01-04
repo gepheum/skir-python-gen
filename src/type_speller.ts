@@ -148,7 +148,7 @@ export class TypeSpeller {
             return PyType.BOOL;
           case "int32":
           case "int64":
-          case "uint64":
+          case "hash64":
             return PyType.INT;
           case "float32":
           case "float64":
