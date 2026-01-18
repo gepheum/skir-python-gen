@@ -354,7 +354,7 @@ class PythonModuleCodeGenerator {
     this.pushLine();
     this.pushLine(`UNKNOWN: typing.Final["${qualifiedName}"] = _`);
     this.pushDocstring([
-      `Constant indicating an unknown ${className.name} (kind: "?").\n`,
+      `Constant indicating an unknown ${className.name}.\n`,
       `Default value for fields of type ${className.name}.`,
     ]);
     this.pushLine();
@@ -410,7 +410,7 @@ class PythonModuleCodeGenerator {
     }
     this.pushLine();
     {
-      const kindTypeArgs = ['"?"']
+      const kindTypeArgs = ['"UNKNOWN"']
         .concat(variants.map((v) => `"${v.name.text}"`))
         .join(", ");
       this.pushLine(`Kind: typing.TypeAlias = typing.Literal[${kindTypeArgs}]`);
@@ -436,9 +436,7 @@ class PythonModuleCodeGenerator {
           );
         }
         docstringLines.push("\nExample:\n");
-        docstringLines.push(
-          `${INDENT_UNIT}if enum.union.kind == "?":  # UNKNOWN`,
-        );
+        docstringLines.push(`${INDENT_UNIT}if enum.union.kind == "UNKNOWN":`);
         docstringLines.push(`${INDENT_UNIT}${INDENT_UNIT}...`);
         for (const variant of variants) {
           docstringLines.push(
@@ -464,7 +462,7 @@ class PythonModuleCodeGenerator {
       this.pushLine("...");
       this.dedent();
     }
-    this.writeVariantClass("Unknown", PyType.NONE, "?");
+    this.writeVariantClass("Unknown", PyType.NONE, "UNKNOWN");
     for (const variant of variants) {
       const variantName = variant.name.text;
       const valueType = variant.type

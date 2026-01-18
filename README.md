@@ -187,8 +187,7 @@ assert john_status.union.kind == "FREE"
 # Static type checkers will complain: "RED" not in the enum definition.
 # assert jane_status.union.kind == "RED"
 
-# Use "?" for UNKNOWN.
-assert joly_status.union.kind == "?"
+assert joly_status.union.kind == "UNKNOWN"
 
 assert roni_status.union.kind == "trial"
 # If the enum holds a wrapper variant, you can access the wrapped value through
@@ -198,7 +197,7 @@ assert isinstance(roni_status.union.value, SubscriptionStatus.Trial)
 
 def get_subscription_info_text(status: SubscriptionStatus) -> str:
     # Pattern matching on enum variants
-    if status.union.kind == "?":
+    if status.union.kind == "UNKNOWN":
         return "Unknown subscription status"
     elif status.union.kind == "FREE":
         return "Free user"

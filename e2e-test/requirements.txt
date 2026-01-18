@@ -1,1 +1,1 @@
-skir-client >= 1.0.3
+skir-client >= 1.0.5

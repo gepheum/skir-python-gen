@@ -91,7 +91,7 @@ def verify_assertion(assertion: Assertion):
         return reserialize_large_string_and_verify(assertion.union.value)
     elif assertion.union.kind == "reserialize_large_array":
         return reserialize_large_array_and_verify(assertion.union.value)
-    elif assertion.union.kind == "?":
+    elif assertion.union.kind == "UNKNOWN":
         raise ValueError("Unknown assertion kind")
     else:
         raise ValueError(f"Unhandled assertion kind: {assertion.union.kind}")
@@ -342,7 +342,7 @@ def evaluate_bytes(expr: BytesExpression) -> bytes:
     elif expr.union.kind == "to_bytes":
         literal = evaluate_typed_value(expr.union.value)
         return to_bytes(literal.serializer, literal.value)
-    elif expr.union.kind == "?":
+    elif expr.union.kind == "UNKNOWN":
         raise ValueError("Unknown BytesExpression kind")
     else:
         raise ValueError(f"Unexpected BytesExpression kind: {expr.union.kind}")
@@ -357,7 +357,7 @@ def evaluate_string(expr: StringExpression) -> str:
     elif expr.union.kind == "to_readable_json":
         literal = evaluate_typed_value(expr.union.value)
         return to_readable_json(literal.serializer, literal.value)
-    elif expr.union.kind == "?":
+    elif expr.union.kind == "UNKNOWN":
         raise ValueError("Unknown StringExpression kind")
     else:
         raise ValueError(f"Unexpected StringExpression kind: {expr.union.kind}")
@@ -566,7 +566,7 @@ def evaluate_typed_value(literal: TypedValue) -> TypedValueType[Any]:
             ),
             serializer=MyEnum.serializer,
         )
-    elif literal.union.kind == "?":
+    elif literal.union.kind == "UNKNOWN":
         raise ValueError("Unknown TypedValue kind")
     else:
         raise ValueError(f"Unexpected TypedValue kind: {literal.union.kind}")
