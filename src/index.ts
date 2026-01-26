@@ -15,6 +15,7 @@ import {
   ClassName,
   PY_UPPER_CAMEL_KEYWORDS,
   getClassName,
+  normalizeModulePath,
 } from "./class_speller.js";
 import { PyType } from "./py_type.js";
 import { TypeSpeller } from "./type_speller.js";
@@ -37,7 +38,7 @@ class PythonCodeGenerator implements CodeGenerator<Config> {
     const outputFiles: CodeGenerator.OutputFile[] = [];
     for (const module of input.modules) {
       outputFiles.push({
-        path: module.path.replace(/\.skir$/, "_skir.py"),
+        path: normalizeModulePath(module.path, "py_file_path"),
         code: new PythonModuleCodeGenerator(
           module,
           recordMap,
@@ -121,9 +122,7 @@ class PythonModuleCodeGenerator {
       this.pushLine(
         "import " +
           (this.config.packagePrefix ?? "") +
-          "skirout." +
-          path.replace(/\.skir$/, "").replace("/", ".") +
-          "_skir",
+          normalizeModulePath(path, "py_module_name"),
       );
     }
     this.pushLine("import skir");

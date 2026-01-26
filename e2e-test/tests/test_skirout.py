@@ -121,3 +121,10 @@ class SkiroutTestCase(unittest.TestCase):
     def test_kind_type_is_defined(self):
         _ = JsonValue.Kind
         del _
+
+    def test_external(self):
+        from skirout import quest_collection_skir
+        from skirout.external.gepheum.fantasy_game_skir_example import fantasy_game_skir
+
+        quest_collection_skir.QuestCollection.DEFAULT
+        fantasy_game_skir.Quest.DEFAULT

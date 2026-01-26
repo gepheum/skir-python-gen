@@ -40,9 +40,9 @@ export function getClassName(
   if (record.modulePath !== origin.path) {
     // The record is located in an imported module.
     const path = record.modulePath;
-    const importPath = path.replace(/\.skir$/, "").replace("/", ".");
+    const importPath = normalizeModulePath(path, "py_module_name");
     const packagePrefix = config.packagePrefix ?? "";
-    qualifiedName = `${packagePrefix}skirout.${importPath}_skir.${qualifiedName}`;
+    qualifiedName = `${packagePrefix}${importPath}.${qualifiedName}`;
   }
 
   return {
@@ -66,3 +66,18 @@ const STRUCT_NESTED_TYPE_NAMES: ReadonlySet<string> = new Set([
 
 /** Generated types nested within an enum class. */
 const ENUM_NESTED_TYPE_NAMES: ReadonlySet<string> = new Set(["Kind"]);
+
+export function normalizeModulePath(
+  path: string,
+  to: "py_file_path" | "py_module_name",
+): string {
+  const base = path.replace(/-/g, "_").replace(/^@/, "external/");
+  if (to === "py_file_path") {
+    return base.replace(/\.skir$/, "_skir.py");
+  } else {
+    const _: "py_module_name" = to;
+    return (
+      "skirout." + base.replace(/\.skir$/, "").replace(/\//g, ".") + "_skir"
+    );
+  }
+}
