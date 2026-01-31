@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
 
 import skir.reflection
-from skirout.goldens_skir import (
+from skirout.external.gepheum.skir_golden_tests.goldens_skir import (
     UNIT_TESTS,
     Assertion,
     BytesExpression,

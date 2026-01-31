@@ -3,6 +3,6 @@ __pycache__
 dist
 node_modules
 skirout
-skirout
+skir-external
 test-env
 tsconfig.tsbuildinfo
