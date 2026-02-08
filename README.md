@@ -219,25 +219,34 @@ def get_subscription_info_text(status: SubscriptionStatus) -> str:
 Every frozen struct class and enum class has a static readonly `serializer` property which can be used for serializing and deserializing instances of the class.
 
 ```python
-# Serialize 'john' to dense JSON.
-
 serializer = User.serializer
 
-print(serializer.to_json(john))
-# [42, 'John Doe']
+# Serialize 'john' to dense JSON.
 
-assert isinstance(serializer.to_json(john), list)
+john_dense_json = serializer.to_json(john)
+
+# With dense JSON, structs are encoded as JSON arrays
+assert isinstance(john_dense_json, list)
 
 # to_json_code() returns a string containing the JSON code.
 # Equivalent to calling json.dumps() on to_json()'s result.
-print(serializer.to_json_code(john))
-# [42,"John Doe"]
+john_dense_json_code: str = serializer.to_json_code(john)
+assert john_dense_json_code.startswith("[")
 
 # Serialize 'john' to readable JSON.
 print(serializer.to_json_code(john, readable=True))
 # {
 #   "user_id": 42,
-#   "name": "John Doe"
+#   "name": "John Doe",
+#   "quote": "Coffee is just a socially acceptable form of rage.",
+#   "pets": [
+#     {
+#       "name": "Dumbo",
+#       "height_in_meters": 1.0,
+#       "picture": "🐘"
+#     }
+#   ],
+#   "subscription_status": "FREE"
 # }
 
 # The dense JSON flavor is the flavor you should pick if you intend to
