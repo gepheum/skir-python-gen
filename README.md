@@ -16,6 +16,12 @@ In your `skir.yml` file, add the following snippet under `generators`:
     config: {}
 ```
 
+The generated Python code has a runtime dependency on the `skir-client` library. Install it with:
+
+```shell
+pip install skir-client
+```
+
 For more information, see this Python project [example](https://github.com/gepheum/skir-python-example).
 
 ## Python generated code guide
