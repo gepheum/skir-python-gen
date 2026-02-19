@@ -277,6 +277,47 @@ assert john == serializer.from_json_code(  #
 )
 ```
 
+### Primitive serializers
+
+```python
+assert skir.primitive_serializer("bool").to_json(True) == 1
+assert skir.primitive_serializer("int32").to_json(3) == 3
+assert (
+    skir.primitive_serializer("int64").to_json(9223372036854775807)
+    == "9223372036854775807"
+)
+assert (
+    skir.primitive_serializer("hash64").to_json(18446744073709551615)
+    == "18446744073709551615"
+)
+assert (
+    skir.primitive_serializer("timestamp").to_json(
+        skir.Timestamp.from_unix_millis(1743682787000)
+    )
+    == 1743682787000
+)
+assert skir.primitive_serializer("float32").to_json(3.14) == 3.14
+assert skir.primitive_serializer("float64").to_json(3.14) == 3.14
+assert skir.primitive_serializer("string").to_json("Foo") == "Foo"
+assert skir.primitive_serializer("bytes").to_json(bytes([1, 2, 3])) == "AQID"
+```
+
+### Composite serializers
+
+```python
+assert (
+    skir.optional_serializer(skir.primitive_serializer("string")).to_json("foo")
+    == "foo"
+)
+assert (
+    skir.optional_serializer(skir.primitive_serializer("string")).to_json(None) is None
+)
+
+assert skir.array_serializer(skir.primitive_serializer("bool")).to_json(
+    (True, False)
+) == [1, 0]
+```
+
 ### Keyed arrays
 
 ```python
