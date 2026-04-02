@@ -362,16 +362,16 @@ print(TARZAN)
 # )
 ```
 
-### Skir services
+### SkirRPC services
 
-#### Starting a skir service on an HTTP server
+#### Starting a SkirRPC service on an HTTP server
 
 Examples:
 - [Flask](https://github.com/gepheum/skir-python-example/blob/main/start_service_flask.py)
 - [FastAPI](https://github.com/gepheum/skir-python-example/blob/main/start_service_fastapi.py)
 - [Litestar](https://github.com/gepheum/skir-python-example/blob/main/start_service_starlite.py)
 
-#### Sending RPCs to a skir service
+#### Sending RPCs to a SkirRPC service
 
 Full example [here](https://github.com/gepheum/skir-python-example/blob/main/call_service.py).
 
