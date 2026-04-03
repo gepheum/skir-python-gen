@@ -118,6 +118,66 @@ def verify_assertion(assertion: Assertion):
                 expected=expected,
                 message=f"Expected EnumB.b to wrap {expected!r}, but got {value.value.union.value!r}",
             )
+    elif assertion.union.kind == "enum_a_from_json_is_constant":
+        json_code = evaluate_string(assertion.union.value.actual)
+        if assertion.union.value.keep_unrecognized:
+            value = from_json_keep_unrecognized(EnumA.serializer, json_code)
+        else:
+            value = from_json_drop_unrecognized(EnumA.serializer, json_code)
+        if value.union.kind != "A":
+            raise AssertionError(
+                actual=value.union.kind,
+                expected="A",
+                message=f"Expected EnumA from JSON to be constant A, but got kind={value.union.kind}",
+            )
+    elif assertion.union.kind == "enum_a_from_bytes_is_constant":
+        data = evaluate_bytes(assertion.union.value.actual)
+        if assertion.union.value.keep_unrecognized:
+            value = from_bytes_keep_unrecognized(EnumA.serializer, data)
+        else:
+            value = from_bytes_drop_unrecognized_fields(EnumA.serializer, data)
+        if value.union.kind != "A":
+            raise AssertionError(
+                actual=value.union.kind,
+                expected="A",
+                message=f"Expected EnumA from bytes to be constant A, but got kind={value.union.kind}",
+            )
+    elif assertion.union.kind == "enum_b_from_json_is_wrapper_b":
+        json_code = evaluate_string(assertion.union.value.actual)
+        if assertion.union.value.keep_unrecognized:
+            value = from_json_keep_unrecognized(EnumB.serializer, json_code)
+        else:
+            value = from_json_drop_unrecognized(EnumB.serializer, json_code)
+        if value.union.kind != "b":
+            raise AssertionError(
+                actual=value.union.kind,
+                expected="b",
+                message=f"Expected EnumB from JSON to be wrapper b, but got kind={value.union.kind}",
+            )
+        if value.union.value != assertion.union.value.expected:
+            raise AssertionError(
+                actual=value.union.value,
+                expected=assertion.union.value.expected,
+                message=f"Expected EnumB.b from JSON to wrap {assertion.union.value.expected!r}, but got {value.union.value!r}",
+            )
+    elif assertion.union.kind == "enum_b_from_bytes_is_wrapper_b":
+        data = evaluate_bytes(assertion.union.value.actual)
+        if assertion.union.value.keep_unrecognized:
+            value = from_bytes_keep_unrecognized(EnumB.serializer, data)
+        else:
+            value = from_bytes_drop_unrecognized_fields(EnumB.serializer, data)
+        if value.union.kind != "b":
+            raise AssertionError(
+                actual=value.union.kind,
+                expected="b",
+                message=f"Expected EnumB from bytes to be wrapper b, but got kind={value.union.kind}",
+            )
+        if value.union.value != assertion.union.value.expected:
+            raise AssertionError(
+                actual=value.union.value,
+                expected=assertion.union.value.expected,
+                message=f"Expected EnumB.b from bytes to wrap {assertion.union.value.expected!r}, but got {value.union.value!r}",
+            )
     else:
         raise ValueError(f"Unhandled assertion kind: {assertion.union.kind}")
 
