@@ -9,6 +9,8 @@ from skirout.external.gepheum.skir_golden_tests.goldens_skir import (
     Assertion,
     BytesExpression,
     Color,
+    EnumA,
+    EnumB,
     KeyedArrays,
     MyEnum,
     Point,
@@ -93,6 +95,29 @@ def verify_assertion(assertion: Assertion):
         return reserialize_large_array_and_verify(assertion.union.value)
     elif assertion.union.kind == "UNKNOWN":
         raise ValueError("Unknown assertion kind")
+    elif assertion.union.kind == "is_constant_a":
+        value = evaluate_typed_value(assertion.union.value.actual)
+        if value.value.union.kind != "A":
+            raise AssertionError(
+                actual=value.value.union.kind,
+                expected="A",
+                message=f"Expected EnumA to be constant A, but got kind={value.value.union.kind}",
+            )
+    elif assertion.union.kind == "is_wrapper_b":
+        value = evaluate_typed_value(assertion.union.value.actual)
+        expected = assertion.union.value.expected
+        if value.value.union.kind != "b":
+            raise AssertionError(
+                actual=value.value.union.kind,
+                expected="b",
+                message=f"Expected EnumB to be wrapper b, but got kind={value.value.union.kind}",
+            )
+        if value.value.union.value != expected:
+            raise AssertionError(
+                actual=value.value.union.value,
+                expected=expected,
+                message=f"Expected EnumB.b to wrap {expected!r}, but got {value.value.union.value!r}",
+            )
     else:
         raise ValueError(f"Unhandled assertion kind: {assertion.union.kind}")
 
@@ -565,6 +590,72 @@ def evaluate_typed_value(literal: TypedValue) -> TypedValueType[Any]:
                 MyEnum.serializer, evaluate_bytes(literal.union.value)
             ),
             serializer=MyEnum.serializer,
+        )
+    elif literal.union.kind == "enum_a":
+        return TypedValueType(
+            value=literal.union.value,
+            serializer=EnumA.serializer,
+        )
+    elif literal.union.kind == "enum_b":
+        return TypedValueType(
+            value=literal.union.value,
+            serializer=EnumB.serializer,
+        )
+    elif literal.union.kind == "enum_a_from_json_keep_unrecognized":
+        return TypedValueType(
+            value=from_json_keep_unrecognized(
+                EnumA.serializer, evaluate_string(literal.union.value)
+            ),
+            serializer=EnumA.serializer,
+        )
+    elif literal.union.kind == "enum_a_from_json_drop_unrecognized":
+        return TypedValueType(
+            value=from_json_drop_unrecognized(
+                EnumA.serializer, evaluate_string(literal.union.value)
+            ),
+            serializer=EnumA.serializer,
+        )
+    elif literal.union.kind == "enum_a_from_bytes_keep_unrecognized":
+        return TypedValueType(
+            value=from_bytes_keep_unrecognized(
+                EnumA.serializer, evaluate_bytes(literal.union.value)
+            ),
+            serializer=EnumA.serializer,
+        )
+    elif literal.union.kind == "enum_a_from_bytes_drop_unrecognized":
+        return TypedValueType(
+            value=from_bytes_drop_unrecognized_fields(
+                EnumA.serializer, evaluate_bytes(literal.union.value)
+            ),
+            serializer=EnumA.serializer,
+        )
+    elif literal.union.kind == "enum_b_from_json_keep_unrecognized":
+        return TypedValueType(
+            value=from_json_keep_unrecognized(
+                EnumB.serializer, evaluate_string(literal.union.value)
+            ),
+            serializer=EnumB.serializer,
+        )
+    elif literal.union.kind == "enum_b_from_json_drop_unrecognized":
+        return TypedValueType(
+            value=from_json_drop_unrecognized(
+                EnumB.serializer, evaluate_string(literal.union.value)
+            ),
+            serializer=EnumB.serializer,
+        )
+    elif literal.union.kind == "enum_b_from_bytes_keep_unrecognized":
+        return TypedValueType(
+            value=from_bytes_keep_unrecognized(
+                EnumB.serializer, evaluate_bytes(literal.union.value)
+            ),
+            serializer=EnumB.serializer,
+        )
+    elif literal.union.kind == "enum_b_from_bytes_drop_unrecognized":
+        return TypedValueType(
+            value=from_bytes_drop_unrecognized_fields(
+                EnumB.serializer, evaluate_bytes(literal.union.value)
+            ),
+            serializer=EnumB.serializer,
         )
     elif literal.union.kind == "UNKNOWN":
         raise ValueError("Unknown TypedValue kind")
