@@ -437,3 +437,4 @@ assert user_type_descriptor == skir.reflection.TypeDescriptor.from_json_code(
     user_type_descriptor.as_json_code()
 )
 ```
+
