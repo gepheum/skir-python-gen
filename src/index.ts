@@ -404,9 +404,6 @@ class PythonModuleCodeGenerator {
     this.pushDocstring("Internal constructor, do not call.");
     this.pushLine("...");
     this.dedent();
-    if (variants.length === 0) {
-      return;
-    }
     this.pushLine();
     {
       const kindTypeArgs = ['"UNKNOWN"']

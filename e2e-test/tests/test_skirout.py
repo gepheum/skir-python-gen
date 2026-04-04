@@ -2,7 +2,7 @@ import unittest
 
 from skirout import methods_skir
 from skirout.constants_skir import ONE_CONSTANT
-from skirout.enums_skir import JsonValue, Weekday
+from skirout.enums_skir import EmptyEnum, JsonValue, Weekday
 from skirout.full_name_skir import FullName
 from skirout.structs_skir import Color, Foo, Item, Items, NameCollision, Triangle, True_
 
@@ -44,6 +44,11 @@ class SkiroutTestCase(unittest.TestCase):
         bar = Foo.Bar.partial(bar="Bar")
         self.assertEqual(bar.foos, None)
         self.assertEqual(bar.bar, "Bar")
+
+    def test_deserialize_unknown_on_empty_enum(self):
+        self.assertEqual(
+            EmptyEnum.serializer.from_json_code('"UNKNOWN"'), EmptyEnum.UNKNOWN
+        )
 
     def test_triangle_default(self):
         self.assertEqual(Triangle.DEFAULT.color, Color.DEFAULT)

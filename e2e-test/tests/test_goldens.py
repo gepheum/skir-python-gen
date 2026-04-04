@@ -95,29 +95,6 @@ def verify_assertion(assertion: Assertion):
         return reserialize_large_array_and_verify(assertion.union.value)
     elif assertion.union.kind == "UNKNOWN":
         raise ValueError("Unknown assertion kind")
-    elif assertion.union.kind == "is_constant_a":
-        value = evaluate_typed_value(assertion.union.value.actual)
-        if value.value.union.kind != "A":
-            raise AssertionError(
-                actual=value.value.union.kind,
-                expected="A",
-                message=f"Expected EnumA to be constant A, but got kind={value.value.union.kind}",
-            )
-    elif assertion.union.kind == "is_wrapper_b":
-        value = evaluate_typed_value(assertion.union.value.actual)
-        expected = assertion.union.value.expected
-        if value.value.union.kind != "b":
-            raise AssertionError(
-                actual=value.value.union.kind,
-                expected="b",
-                message=f"Expected EnumB to be wrapper b, but got kind={value.value.union.kind}",
-            )
-        if value.value.union.value != expected:
-            raise AssertionError(
-                actual=value.value.union.value,
-                expected=expected,
-                message=f"Expected EnumB.b to wrap {expected!r}, but got {value.value.union.value!r}",
-            )
     elif assertion.union.kind == "enum_a_from_json_is_constant":
         json_code = evaluate_string(assertion.union.value.actual)
         if assertion.union.value.keep_unrecognized:
