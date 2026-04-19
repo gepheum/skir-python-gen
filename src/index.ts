@@ -10,6 +10,7 @@ import type {
   RecordLocation,
   ResolvedType,
 } from "skir-internal";
+import { convertCase } from "skir-internal";
 import { z } from "zod";
 import {
   ClassName,
@@ -358,7 +359,9 @@ class PythonModuleCodeGenerator {
     ]);
     this.pushLine();
     for (const constantVariant of constantVariants) {
-      const attribute = enumConstantVariantToAttr(constantVariant.name.text);
+      const attribute = enumConstantVariantToAttr(
+        convertCase(constantVariant.name.text, "UPPER_UNDERSCORE"),
+      );
       this.pushLine(`${attribute}: typing.Final["${qualifiedName}"] = _`);
       this.pushDocstring(
         getDocTextForDocstring(constantVariant.doc),
@@ -407,7 +410,15 @@ class PythonModuleCodeGenerator {
     this.pushLine();
     {
       const kindTypeArgs = ['"UNKNOWN"']
-        .concat(variants.map((v) => `"${v.name.text}"`))
+        .concat(
+          variants
+            .map((v) =>
+              v.type
+                ? v.name.text
+                : convertCase(v.name.text, "UPPER_UNDERSCORE"),
+            )
+            .map((v) => `"${v}"`),
+        )
         .join(", ");
       this.pushLine(`Kind: typing.TypeAlias = typing.Literal[${kindTypeArgs}]`);
     }
@@ -415,7 +426,11 @@ class PythonModuleCodeGenerator {
       const getVariantType = (name: string): PyType =>
         PyType.quote(`${qualifiedName}._${name}`);
       const typesInUnion = [getVariantType("Unknown")].concat(
-        variants.map((v) => getVariantType(v.name.text)),
+        variants.map((v) =>
+          getVariantType(
+            v.type ? v.name.text : convertCase(v.name.text, "UPPER_UNDERSCORE"),
+          ),
+        ),
       );
       this.pushLine();
       this.pushLine("@property");
@@ -435,8 +450,11 @@ class PythonModuleCodeGenerator {
         docstringLines.push(`${INDENT_UNIT}if enum.union.kind == "UNKNOWN":`);
         docstringLines.push(`${INDENT_UNIT}${INDENT_UNIT}...`);
         for (const variant of variants) {
+          const kindName = variant.type
+            ? variant.name.text
+            : convertCase(variant.name.text, "UPPER_UNDERSCORE");
           docstringLines.push(
-            `${INDENT_UNIT}elif enum.union.kind == "${variant.name.text}":`,
+            `${INDENT_UNIT}elif enum.union.kind == "${kindName}":`,
           );
           if (variant.type) {
             const pyType = typeSpeller
@@ -460,7 +478,9 @@ class PythonModuleCodeGenerator {
     }
     this.writeVariantClass("Unknown", PyType.NONE, "UNKNOWN");
     for (const variant of variants) {
-      const variantName = variant.name.text;
+      const variantName = variant.type
+        ? variant.name.text
+        : convertCase(variant.name.text, "UPPER_UNDERSCORE");
       const valueType = variant.type
         ? typeSpeller.getPyType(variant.type, "frozen")
         : PyType.NONE;
@@ -748,7 +768,7 @@ class PythonModuleCodeGenerator {
 
   private writeConstantVariantsSpec(variants: readonly Field[]): void {
     for (const variant of variants) {
-      const variantName = variant.name.text;
+      const variantName = convertCase(variant.name.text, "UPPER_UNDERSCORE");
       const { doc: variantDoc } = variant;
       this.pushLine("    _spec.ConstantVariant(");
       this.pushLine(`     name="${variantName}",`);
