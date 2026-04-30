@@ -25,7 +25,7 @@ const ONE_CONSTANT: JsonValue = {
       value: [
         {
           name: "foo",
-          value: "NULL",
+          value: "null",
         },
       ],
     },
